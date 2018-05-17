@@ -1,9 +1,13 @@
 {
     "type" : "colonymanager",
-
     "scripts" : [
         "/objects/spawner/colonydeed/timer.lua",
         "/stagehands/colonymanager.lua"
     ],
-    "scriptDelta" : 5
+    "scriptDelta" : 5,
+
+    "initInfo" : {
+        "deedId" : "deedUuid",
+        "playerId": "playerUuid"
+    }
 }

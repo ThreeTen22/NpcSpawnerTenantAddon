@@ -7,7 +7,7 @@ NpcInject = WeaponAbility:new()
 
 function NpcInject:init()
   self.weapon:setStance(self.stances.idle)
-
+  self.maxStorage = 10
   self.cooldownTimer = 0 
   self.weapon.onLeaveAbility = function()
     self.weapon:setStance(self.stances.idle)
@@ -48,18 +48,8 @@ function NpcInject:update(dt, fireMode, shiftHeld)
 end
 
 
-function spawnerFound(spawnerId)
-  if #storage.grabbedParam < self.maxStorage and (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
-    petInfo.parameters = petInfo.parameters or {}
-    petInfo.parameters.persistent = true
-    petInfo.parameters.wasRelocated = true
-    table.insert(storage.grabbedParam, petInfo)
+function spawnerFound(objectId)
 
-    self:setState(self.absorb, monsterId, petInfo)
-    return true
-  else
-    return false
-  end
 end
 
 function NpcInject:scan()
@@ -72,7 +62,6 @@ function NpcInject:scan()
     local objects = world.objectQuery(activeItem.ownerAimPosition(), 2, {order = "nearest" })
     sb.setLogMap("scan.objects - before util", "%s %s", sb.printJson(objects), #objects)
     objects = util.filter(objects, function(objectId)
-
       local position = world.entityPosition(objectId)
       if world.lineTileCollision(self:firePosition(), position) then
         return false
@@ -86,11 +75,22 @@ function NpcInject:scan()
       end
       return true
     end)
-    sb.setLogMap("scan.objects - after", "%s", sb.printJson(objects))
     if #objects > 0 then
-      sb.setLogMap("scan.ScanCount", "%s", scanCount)
-      scanCount = scanCount - 1
-      spawnerFound()
+      local spawner = {}
+      local objectId = objects[1]
+      if jsize(storage.grabbedParam) < self.maxStorage and 
+      (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
+
+        spawner = world.getObjectParameter(objectId, "deed") or {}
+        spawner.attachPoint = {0,0}
+    
+        table.insert(storage.grabbedParam, spawner)
+    
+        self:setState(self.absorb, objectId, spawner)
+        return true
+      else
+        return false
+      end
     end
     coroutine.yield()
   end
@@ -114,22 +114,22 @@ for _,objectId in ipairs(objects) do
     end
 ----]]
 
-function NpcInject:absorb(entityId, monster)
+function NpcInject:absorb(entityId, object)
   animator.stopAllSounds("scanning")
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
   animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
 
-  local monsterPosition = {0, 0}
+  local objectPosition = {0, 0}
 
   local timer = 0
   while timer < self.beamReturnTime do
     if world.entityExists(entityId) then
-      monsterPosition = vec2.add(world.entityPosition(entityId), monster.attachPoint)
+      objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
     end
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, monsterPosition)
-    local offset = self:beamPosition(monsterPosition)
+    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
+    local offset = self:beamPosition(objectPosition)
     self:drawBeam(vec2.add(self:firePosition(), vec2.mul(offset, timer / self.beamReturnTime)), false)
 
     timer = timer + script.updateDt()
@@ -139,10 +139,10 @@ function NpcInject:absorb(entityId, monster)
   local stoppedBeam = false
   local scanTimer = 10
   while world.entityExists(entityId) or scanTimer > 0 do
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, monsterPosition)
-    monsterPosition = vec2.add(world.entityPosition(entityId), monster.attachPoint)
+    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
+    objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
     
-    local offset = self:beamPosition(monsterPosition)
+    local offset = self:beamPosition(objectPosition)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
     scanTimer = scanTimer - 1
     coroutine.yield()
@@ -172,7 +172,7 @@ function NpcInject:fire()
   local spawnPosition = activeItem.ownerAimPosition()
 
   local last = #storage.grabbedParam
-  local monster = storage.grabbedParam[last]
+  local spawner = storage.grabbedParam[last]
 
   local timer = 0
   while timer < self.beamReturnTime do
@@ -185,8 +185,8 @@ function NpcInject:fire()
     coroutine.yield()
   end
 
-  if not world.polyCollision(poly.translate(monster.collisionPoly, spawnPosition)) then
-    world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
+  if not world.polyCollision(poly.translate(spawner.collisionPoly, spawnPosition)) then
+    --world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
     storage.grabbedParam[last] = nil
     animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
 
