@@ -1,0 +1,9 @@
+{
+    "type" : "colonymanager",
+
+    "scripts" : [
+        "/objects/spawner/colonydeed/timer.lua",
+        "/stagehands/colonymanager.lua"
+    ],
+    "scriptDelta" : 5
+}

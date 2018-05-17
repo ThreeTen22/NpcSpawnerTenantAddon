@@ -13,23 +13,10 @@ function NpcInject:init()
     self.weapon:setStance(self.stances.idle)
   end
 
-  storage.storedMonsters = storage.storedMonsters or jarray()
-  animator.setGlobalTag("absorbed", string.format("%s", #storage.storedMonsters))
-
-  message.setHandler("confirmRelocate", function(_,_, monsterId, petInfo)
-    if #storage.storedMonsters < self.maxStorage and (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
-      petInfo.parameters = petInfo.parameters or {}
-      petInfo.parameters.persistent = true
-      petInfo.parameters.wasRelocated = true
-      table.insert(storage.storedMonsters, petInfo)
-
-      self:setState(self.absorb, monsterId, petInfo)
-      return true
-    else
-      return false
-    end
-  end)
+  storage.grabbedParam = storage.grabbedParam or jarray()
+  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
 end
+
 
 function NpcInject:update(dt, fireMode, shiftHeld)
   WeaponAbility.update(self, dt, fireMode, shiftHeld)
@@ -40,7 +27,7 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     and not self.weapon.currentAbility
     and self.cooldownTimer == 0 then
 
-    if #storage.storedMonsters < self.maxStorage then
+    if #storage.grabbedParam < self.maxStorage then
       self:setState(self.scan)
     else
       animator.playSound("error")
@@ -52,11 +39,26 @@ function NpcInject:update(dt, fireMode, shiftHeld)
   if self.fireMode == "primary"
     and not self.weapon.currentAbility
     and self.cooldownTimer == 0
-    and #storage.storedMonsters > 0
+    and #storage.grabbedParam > 0
     and mag > vec2.mag(self.weapon.muzzleOffset) and mag < self.maxRange
     and not world.lineTileCollision(self:firePosition(), activeItem.ownerAimPosition()) then
 
     self:setState(self.fire)
+  end
+end
+
+
+function spawnerFound(spawnerId)
+  if #storage.grabbedParam < self.maxStorage and (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
+    petInfo.parameters = petInfo.parameters or {}
+    petInfo.parameters.persistent = true
+    petInfo.parameters.wasRelocated = true
+    table.insert(storage.grabbedParam, petInfo)
+
+    self:setState(self.absorb, monsterId, petInfo)
+    return true
+  else
+    return false
   end
 end
 
@@ -65,10 +67,13 @@ function NpcInject:scan()
   animator.playSound("scanning", -1)
 
   local promises = {}
+  local scanCount = 1
   while self.fireMode == "alt" do
-    local monsters = world.entityQuery(activeItem.ownerAimPosition(), 2, { includedTypes = { "monster" }, order = "nearest" })
-    monsters = util.filter(monsters, function(monsterId)
-      local position = world.entityPosition(monsterId)
+    local objects = world.objectQuery(activeItem.ownerAimPosition(), 2, {order = "nearest" })
+    sb.setLogMap("scan.objects - before util", "%s %s", sb.printJson(objects), #objects)
+    objects = util.filter(objects, function(objectId)
+
+      local position = world.entityPosition(objectId)
       if world.lineTileCollision(self:firePosition(), position) then
         return false
       end
@@ -76,24 +81,16 @@ function NpcInject:scan()
       if mag > self.maxRange or mag < vec2.mag(self.weapon.muzzleOffset) then
         return false
       end
-      if not contains({"enemy", "friendly", "passive"}, world.entityDamageTeam(monsterId).type) then
+      if world.getObjectParameter(objectId, "category") ~= "spawner" then
         return false
       end
-
       return true
     end)
-
-    for _,monsterId in ipairs(monsters) do
-      if not promises[monsterId] then
-        promises[monsterId] = true
-        local promise = world.sendEntityMessage(monsterId, "pet.attemptRelocate", activeItem.ownerEntityId())
-
-        while not promise:finished() do
-          coroutine.yield()
-        end
-
-        break
-      end
+    sb.setLogMap("scan.objects - after", "%s", sb.printJson(objects))
+    if #objects > 0 then
+      sb.setLogMap("scan.ScanCount", "%s", scanCount)
+      scanCount = scanCount - 1
+      spawnerFound()
     end
     coroutine.yield()
   end
@@ -102,12 +99,27 @@ function NpcInject:scan()
   animator.playSound("scanend")
 end
 
+--[[
+for _,objectId in ipairs(objects) do
+      if not promises[objectId] then
+        promises[objectId] = true
+        local promise = world.sendEntityMessage(objectId, "pet.attemptRelocate", activeItem.ownerEntityId())
+
+        while not promise:finished() do
+          coroutine.yield()
+        end
+
+        break
+      end
+    end
+----]]
+
 function NpcInject:absorb(entityId, monster)
   animator.stopAllSounds("scanning")
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
-  animator.setGlobalTag("absorbed", string.format("%s", #storage.storedMonsters))
+  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
 
   local monsterPosition = {0, 0}
 
@@ -125,14 +137,14 @@ function NpcInject:absorb(entityId, monster)
   end
 
   local stoppedBeam = false
-
-  while world.entityExists(entityId) do
+  local scanTimer = 10
+  while world.entityExists(entityId) or scanTimer > 0 do
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, monsterPosition)
     monsterPosition = vec2.add(world.entityPosition(entityId), monster.attachPoint)
     
     local offset = self:beamPosition(monsterPosition)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
-
+    scanTimer = scanTimer - 1
     coroutine.yield()
   end
 
@@ -159,8 +171,8 @@ function NpcInject:fire()
 
   local spawnPosition = activeItem.ownerAimPosition()
 
-  local last = #storage.storedMonsters
-  local monster = storage.storedMonsters[last]
+  local last = #storage.grabbedParam
+  local monster = storage.grabbedParam[last]
 
   local timer = 0
   while timer < self.beamReturnTime do
@@ -175,8 +187,8 @@ function NpcInject:fire()
 
   if not world.polyCollision(poly.translate(monster.collisionPoly, spawnPosition)) then
     world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
-    storage.storedMonsters[last] = nil
-    animator.setGlobalTag("absorbed", string.format("%s", #storage.storedMonsters))
+    storage.grabbedParam[last] = nil
+    animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
 
     util.wait(0.3, function()
       self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnPosition)
