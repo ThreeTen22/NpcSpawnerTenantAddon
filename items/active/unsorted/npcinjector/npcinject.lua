@@ -12,15 +12,19 @@ function NpcInject:init()
     self.weapon:setStance(self.stances.idle)
   end
 
-  self.grabbedParam =  jarray()
+  storage.grabbedParam =  storage.grabbedParam  or jarray()
   animator.setGlobalTag("absorbed", string.format("%s", 3))
   message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants)
     self.tenants = tenants
     self.stagehandId = id
+    return true
+  end)
+  message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
+    storage.grabbedParam = jarray()
   end)
   message.setHandler("npcinjector.paneAlive", function() self.grabTimer = 0 end)
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
-    self.grabbedParam = jarray()
+    storage.grabbedParam = jarray()
   end)
 end
 
@@ -34,7 +38,7 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     and not self.weapon.currentAbility
     and self.cooldownTimer == 0 then
 
-    if #self.grabbedParam < self.maxStorage then
+    if #storage.grabbedParam < self.maxStorage then
       self:setState(self.scan)
     else
       animator.playSound("error")
@@ -43,14 +47,14 @@ function NpcInject:update(dt, fireMode, shiftHeld)
   end
   if self.fireMode == "alt" then
     --DEBUG:  DONT KEEP
-    self.grabbedParam = jarray()
+    storage.grabbedParam = jarray()
   end
   --[[
   local mag = world.magnitude(mcontroller.position(), activeItem.ownerAimPosition())
   if self.fireMode == "alt"
     and not self.weapon.currentAbility
     and self.cooldownTimer == 0
-    and #self.grabbedParam > 0
+    and #storage.grabbedParam > 0
     and mag > vec2.mag(self.weapon.muzzleOffset) and mag < self.maxRange
     and not world.lineTileCollision(self:firePosition(), activeItem.ownerAimPosition()) then
 
@@ -85,13 +89,13 @@ function NpcInject:scan()
     if #objects > 0 then
       local spawner = {}
       local objectId = objects[1]
-      if jsize(self.grabbedParam) < self.maxStorage and 
+      if jsize(storage.grabbedParam) < self.maxStorage and 
       (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
         local position = world.entityPosition(objectId)
         spawner = world.getObjectParameter(objectId, "deed") or {}
         spawner.attachPoint = {0,0}
         spawner.objectId = objectId
-        table.insert(self.grabbedParam, spawner)
+        table.insert(storage.grabbedParam, spawner)
     
      
         
@@ -151,20 +155,22 @@ function NpcInject:absorb(entityId, object)
   
   local dUuid = world.entityUniqueId(entityId)
   local pUuid = player.uniqueId()
-  local stagehandId = world.spawnStagehand(objectPosition, "colonymanager", {deedUuid=dUuid, playerUuid=pUuid})
+  local stagehandId = world.spawnStagehand(objectPosition, "colonymanager", {deedId = entityId, deedUuid=dUuid, playerUuid=pUuid})
 
-  while not world.entityExists(self.stagehandId or -1) do
+  while not world.entityExists(self.stagehandId or -1) and #storage.grabbedParam > 0 do
     coroutine.yield()
   end
-  local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
-  deedpane.deedUuid = dUuid
-  deedpane.playerUuid = pUuid
-  deedpane.stagehandId = self.stagehandId
-  deedpane.deedId = entityId
-  player.interact("ScriptPane", deedpane, entityId)
+  if #storage.grabbedParam > 0 then
+    local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
+    deedpane.deedUuid = dUuid
+    deedpane.playerUuid = pUuid
+    deedpane.stagehandId = self.stagehandId
+    deedpane.deedId = entityId
+    deedpane.stagehandPosition = objectPosition
+    player.interact("ScriptPane", deedpane)
+  end
 
-
-  while world.entityExists(entityId) do
+  while world.entityExists(entityId) and #storage.grabbedParam > 0 do
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
     objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
     local offset = self:beamPosition(objectPosition)
@@ -199,8 +205,8 @@ function NpcInject:fire()
 
   local spawnPosition = activeItem.ownerAimPosition()
 
-  local last = #self.grabbedParam
-  local spawner = self.grabbedParam[last]
+  local last = #storage.grabbedParam
+  local spawner = storage.grabbedParam[last]
 
   local timer = 0
   while timer < self.beamReturnTime do
@@ -215,7 +221,7 @@ function NpcInject:fire()
 
   if not world.polyCollision(poly.translate(spawner.collisionPoly, spawnPosition)) then
     --world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
-    self.grabbedParam[last] = nil
+    storage.grabbedParam[last] = nil
     animator.setGlobalTag("absorbed", string.format("%s", 3))
 
     util.wait(0.3, function()

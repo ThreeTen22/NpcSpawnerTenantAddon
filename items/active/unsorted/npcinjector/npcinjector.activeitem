@@ -32,7 +32,7 @@
 
     "maxStorage" : 1,
 
-    "maxRange" : 2,
+    "maxRange" : 10,
     "cooldownTime" : 0.5,
 
     "beamReturnTime" : 0.1,

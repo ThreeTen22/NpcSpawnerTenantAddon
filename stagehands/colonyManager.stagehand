@@ -9,5 +9,6 @@
     "scriptDelta" : 5,
 
     "deedUuid" : "",
-    "playerUuid": ""
+    "playerUuid": "",
+    "deedId": ""
 }
