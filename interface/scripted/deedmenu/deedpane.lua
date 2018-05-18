@@ -28,7 +28,7 @@ function update(dt)
     self.timers:update(dt)
     local currentPosition = world.entityPosition(player.id())
     local distance = world.distance(currentPosition, config.getParameter("stagehandPosition"))
-    sb.logInfo(sb.printJson(distance, 1))
+
     if vec2.mag(distance) > 20 then
         pane.dismiss()
     end

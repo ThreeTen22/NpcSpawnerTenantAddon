@@ -167,6 +167,7 @@ function NpcInject:absorb(entityId, object)
     deedpane.stagehandId = self.stagehandId
     deedpane.deedId = entityId
     deedpane.stagehandPosition = objectPosition
+    deedpane.tenants = self.tenants
     player.interact("ScriptPane", deedpane)
   end
 

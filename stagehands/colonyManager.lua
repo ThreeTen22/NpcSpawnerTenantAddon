@@ -50,7 +50,6 @@ function update(dt)
                 world.callScriptedEntity(self.deedId, "scanVacantArea")
             end
             local tenants = getTenants()
-            sb.logInfo(sb.printJson(tenants, 1))
             local id = entity.id()
 
             if #tenants == 0 then
@@ -58,6 +57,15 @@ function update(dt)
                 world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOccupied"})
                 return die()
             end
+            local entityId = nil
+            for i,v in ipairs(tenants) do
+                entityId = world.loadUniqueEntity(tenants[i].uniqueId)
+                sb.logInfo("entityID: %s",entityId)
+                tenants[i].npcinjector = { portraits = {} }
+                tenants[i].npcinjector.portraits.full = world.entityPortrait(entityId, "full")
+                tenants[i].npcinjector.portraits.bust = world.entityPortrait(entityId, "bust")
+            end
+            sb.logInfo(sb.printJson(tenants, 1))
             promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants), 
             function()
                 self.state = "main"
