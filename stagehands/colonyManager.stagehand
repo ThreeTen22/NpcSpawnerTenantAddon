@@ -6,8 +6,6 @@
     ],
     "scriptDelta" : 5,
 
-    "initInfo" : {
-        "deedId" : "deedUuid",
-        "playerId": "playerUuid"
-    }
+    "deedUuid" : "",
+    "playerUuid": ""
 }

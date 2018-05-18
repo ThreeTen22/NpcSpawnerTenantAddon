@@ -15,6 +15,9 @@ function NpcInject:init()
 
   storage.grabbedParam = storage.grabbedParam or jarray()
   animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam))
+  message.setHandler("npcinjector.onStagehandSuccess", function(_,_,tenants)
+    storage.grabbedParam = tenants
+  end)
 end
 
 
@@ -47,11 +50,6 @@ function NpcInject:update(dt, fireMode, shiftHeld)
   end
 end
 
-
-function spawnerFound(objectId)
-
-end
-
 function NpcInject:scan()
   animator.playSound("scan")
   animator.playSound("scanning", -1)
@@ -60,8 +58,8 @@ function NpcInject:scan()
   local scanCount = 1
   while self.fireMode == "alt" do
     local objects = world.objectQuery(activeItem.ownerAimPosition(), 2, {order = "nearest" })
-    sb.setLogMap("scan.objects - before util", "%s %s", sb.printJson(objects), #objects)
-    objects = util.filter(objects, function(objectId)
+    objects = util.filter(objects, 
+    function(objectId)
       local position = world.entityPosition(objectId)
       if world.lineTileCollision(self:firePosition(), position) then
         return false
@@ -80,12 +78,17 @@ function NpcInject:scan()
       local objectId = objects[1]
       if jsize(storage.grabbedParam) < self.maxStorage and 
       (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
-
+        local position = world.entityPosition(objectId)
+        local dUuid = world.entityUniqueId(objectId)
+        local pUuid = player.uniqueId() 
         spawner = world.getObjectParameter(objectId, "deed") or {}
         spawner.attachPoint = {0,0}
     
         table.insert(storage.grabbedParam, spawner)
     
+        --self.paneStagehand = world.spawnStagehand(position, "colonymanager", {deedUuid=dUuid, playerUuid=pUuid})
+        --player.interact("InterfaceInventory", {})
+        
         self:setState(self.absorb, objectId, spawner)
         return true
       else
