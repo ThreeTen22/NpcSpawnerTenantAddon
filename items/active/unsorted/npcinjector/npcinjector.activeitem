@@ -30,9 +30,9 @@
     "scripts" : ["/items/active/unsorted/npcinjector/npcinject.lua"],
     "class" : "NpcInject",
 
-    "maxStorage" : 3,
+    "maxStorage" : 1,
 
-    "maxRange" : 20,
+    "maxRange" : 2,
     "cooldownTime" : 0.5,
 
     "beamReturnTime" : 0.1,

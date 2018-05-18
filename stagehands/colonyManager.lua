@@ -1,46 +1,62 @@
 require "/scripts/messageutil.lua"
 function init()
 
-    self.deedUuid = config.getParameter("deedId")
+    self.deedUuid = config.getParameter("deedUuid")
     self.playerUuid = config.getParameter("playerUuid")
-    self.shutdownTimer = 10
     self.state = "init"
     if self.deedUuid == "" or self.playerUuid == "" then
         sb.logError("colonyManager:  init deedUuid or playerUuid was not provided: \n deedUuid: %s\nplayerUuid: %s", self.deedUuid, self.playerUuid)
         die()
     end
-    message.setHandler("setPaneState", simpleHandler(setPaneState))
+
+    self.timers = TimerManager:new()
+
+    self.deathTimer = Timer:new("deathTimer", {
+        delay = 5.0,
+        completeCallback = die,
+        loop = false
+      })
+    if not self.deathTimer:active() then
+      self.deathTimer:start()
+    end
+
+    self.timers:manage(self.deathTimer)
+
+
+
+    message.setHandler("delayDeath", function(...) self.deathTimer:reset() end)
     message.setHandler("getTenants", simpleHandler(getTenants))
     message.setHandler("addTenants", simpleHandler(addTenants))
+    message.setHandler("replaceTenants", simpleHandler(replaceTenants))
 end
 
 function update(dt)
+    promises:update()
+    self.timers:update(dt)
     if self.state == "main" then
         mainUpdate(dt)
     elseif self.state == "init" then
-        promises:update()
         if promises:empty() then
             local tenants = getTenants()
-            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess", tenants), 
+            local id = entity.id()
+            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants), 
             function()
                 self.state = "main"
+                update = mainUpdate
             end,
             function()
                 return die()
             end)
         end
     end
-    if self.shutdownTimer < 1 then
-        return die()
-    end
-    self.shutdownTimer = self.shutdownTimer - 1
 end
 
 function mainUpdate(dt)
-    if not isDeedAlive() or not isPlayerAlive() then
+    if not isDeedAlive() then
         die()
     end
     promises:update()
+    self.timers:update(dt)
 end
 
 function die()
@@ -80,4 +96,9 @@ function addTenants(tenantArray)
             world.callScriptedEntity(deedId, "addTenant", v)
         end
     end
+end
+
+function replaceTenants(tenant)
+    local uniqueId = tenant.uniqueId
+
 end
