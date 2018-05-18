@@ -63,7 +63,7 @@ function update(dt)
                 sb.logInfo("entityID: %s",entityId)
                 tenants[i].npcinjector = { portraits = {} }
                 tenants[i].npcinjector.portraits.full = world.entityPortrait(entityId, "full")
-                tenants[i].npcinjector.portraits.bust = world.entityPortrait(entityId, "bust")
+                tenants[i].npcinjector.portraits.bust = world.entityPortrait(entityId, "head")
             end
             sb.logInfo(sb.printJson(tenants, 1))
             promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants), 

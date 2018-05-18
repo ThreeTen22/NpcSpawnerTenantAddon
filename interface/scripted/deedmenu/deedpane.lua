@@ -2,6 +2,60 @@ require "/objects/spawner/colonydeed/timer.lua"
 require "/scripts/vec2.lua"
 require "/scripts/messageutil.lua"
 storage = storage or {}
+
+listManager = {}
+listManager.__index = listManager
+
+function listManager.new(...)
+    local self = {}
+    setmetatable(self, listManager)
+    self:init(...)
+    return self
+end
+
+function listManager:init(tenants)
+    self.items = {}
+    self.itemNameByIndex = {}
+    self.listPath = "tenantScrollArea.list"
+    self.template = {}
+    self.template.canvas = "portraitCanvas"
+    table.insert(tenants, copy(tenants[1]))
+    local item = nil
+    for i,v in pairs(tenants) do
+        item = widget.addListItem(self.listPath)
+        --local widgetCanvas = widget.bindCanvas(self.listPath..item..self.template.canvas)
+        sb.logInfo("canvasPath:  %s.%s.%s",self.listPath, item, self.template.canvas)
+        self.items[item] = {
+            canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, item, self.template.canvas)),
+            tenant = v
+        }
+        table.insert(self.itemNameByIndex, item)
+    end
+    local itemPortraitPosition = {10, 5}
+    local itemSize = {100, 20}
+    local itemTextPosition = {30, 9} 
+    util.each(self.items, 
+    function(k, v)
+        v.canvas:clear()
+
+        --DEBUG: REPLACE WITH IMAGE
+        v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, "black")
+        v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+
+        local imageSize = root.imageSize(v.tenant.npcinjector.portraits.bust[1].image)
+        for _,portrait in ipairs(v.tenant.npcinjector.portraits.bust) do
+            v.canvas:drawImageDrawable(portrait.image, vec2.add(itemPortraitPosition, portrait.position), 1.0, portrait.color)
+        end 
+        
+    end)
+end
+
+
+--[[
+    imageSize   =   20
+    1.0              y
+]]
+
 function init()
     self.timers = TimerManager:new()
 
@@ -21,7 +75,7 @@ function init()
     end
 
     self.timers:manage(self.delayStagehandDeath)
-
+    listManager:init(config.getParameter("tenants"))
 end
 
 function update(dt)
