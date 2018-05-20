@@ -19,27 +19,37 @@ function listManager:init(tenants)
     self.listPath = "tenantScrollArea.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
-    table.insert(tenants, copy(tenants[1]))
+    
     local item = nil
-    for i,v in pairs(tenants) do
+
+    for i = 1, 5 do
         item = widget.addListItem(self.listPath)
         --local widgetCanvas = widget.bindCanvas(self.listPath..item..self.template.canvas)
-        sb.logInfo("canvasPath:  %s.%s.%s",self.listPath, item, self.template.canvas)
+        local tenant = tenants[i] or {}
+        --sb.logInfo("canvasPath:  %s.%s.%s",self.listPath, item, self.template.canvas)
         self.items[item] = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, item, self.template.canvas)),
-            tenant = v
+            tenant = tenant
         }
         table.insert(self.itemNameByIndex, item)
     end
+
     local itemPortraitPosition = {10, 5}
     local itemSize = {100, 20}
     local itemTextPosition = {30, 9} 
-    util.each(self.items, 
-    function(k, v)
-        v.canvas:clear()
 
-        --DEBUG: REPLACE WITH IMAGE
+    --using filter due to ipair, don't need new list
+    util.each(self.itemNameByIndex, 
+    function(i, v)
+        local v = self.items[v]
+        v.canvas:clear()
         v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, "black")
+        if isEmpty(v.tenant) then
+            v.canvas:drawText("-- Empty -- ", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+            return
+        end
+        --DEBUG: REPLACE WITH IMAGE
+        
         v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
 
         local imageSize = root.imageSize(v.tenant.npcinjector.portraits.bust[1].image)
