@@ -210,6 +210,7 @@ function NpcInject:absorb(entityId, object)
 end
 
 function NpcInject:fire()
+  --[[
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
@@ -233,7 +234,7 @@ function NpcInject:fire()
   if not world.polyCollision(poly.translate(spawner.collisionPoly, spawnPosition)) then
     --world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
     storage.grabbedParam[last] = nil
-    animator.setGlobalTag("absorbed", string.format("%s", 3))
+    animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
 
     util.wait(0.3, function()
       self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnPosition)
@@ -260,6 +261,8 @@ function NpcInject:fire()
   end
 
   self.cooldownTimer = self.cooldownTime
+
+  --]]
 end
 
 function NpcInject:drawBeam(endPos, didCollide)
