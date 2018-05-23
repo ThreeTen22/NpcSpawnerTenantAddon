@@ -13,7 +13,15 @@ function NpcInject:init()
   end
 
   storage.grabbedParam =  storage.grabbedParam  or jarray()
-  animator.setGlobalTag("absorbed", string.format("%s", 3))
+  if storage.grabbedParam[1] then
+    local id = storage.grabbedParam[1].objectId or -1
+    if not (world.entityExists(id)
+    and world.entityName(id) == "colonydeed"
+    and world.magnitude(mcontroller.position(),world.entityPosition(id)) < 20) then
+      storage.grabbedParam = jarray()
+    end
+  end
+  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
   message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants)
     self.tenants = tenants
     self.stagehandId = id
@@ -22,9 +30,10 @@ function NpcInject:init()
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
     storage.grabbedParam = jarray()
   end)
-  message.setHandler("npcinjector.paneAlive", function() self.grabTimer = 0 end)
+
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
     storage.grabbedParam = jarray()
+    animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
   end)
 end
 
@@ -96,9 +105,6 @@ function NpcInject:scan()
         spawner.attachPoint = {0,0}
         spawner.objectId = objectId
         table.insert(storage.grabbedParam, spawner)
-    
-     
-        
         self:setState(self.absorb, objectId, spawner)
         return true
       else
@@ -132,7 +138,7 @@ function NpcInject:absorb(entityId, object)
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
-  animator.setGlobalTag("absorbed", string.format("%s", 3))
+  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
 
   local objectPosition = {0, 0}
 
@@ -178,10 +184,12 @@ function NpcInject:absorb(entityId, object)
     objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
     local offset = self:beamPosition(objectPosition)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
+    --[[
     scanTimer = scanTimer - script.updateDt()
     if scanTimer == 0 then
       break
     end
+    --]]
     coroutine.yield()
   end
 
@@ -197,7 +205,7 @@ function NpcInject:absorb(entityId, object)
 
     coroutine.yield()
   end
-
+  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
   self.cooldownTimer = self.cooldownTime
 end
 

@@ -19,7 +19,7 @@ function listManager:init(tenants)
     self.listPath = "tenantScrollArea.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
-    
+    self.listBackgroundColor = {125,168,201}
     local item = nil
 
     for i = 1, 5 do
@@ -34,7 +34,7 @@ function listManager:init(tenants)
         table.insert(self.itemNameByIndex, item)
     end
 
-    local itemPortraitPosition = {10, 5}
+    local itemPortraitPosition = {15, 5}
     local itemSize = {100, 20}
     local itemTextPosition = {30, 9} 
 
@@ -43,9 +43,10 @@ function listManager:init(tenants)
     function(i, v)
         local v = self.items[v]
         v.canvas:clear()
-        v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, "black")
+        v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, self.listBackgroundColor)
         if isEmpty(v.tenant) then
             v.canvas:drawText("-- Empty -- ", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+            v.canvas:drawImageDrawable("/interface/nullcharportraitpart.png", vec2.add(itemPortraitPosition, {0, 4}), 0.7)
             return
         end
         --DEBUG: REPLACE WITH IMAGE
