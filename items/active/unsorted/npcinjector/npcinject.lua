@@ -171,7 +171,9 @@ function NpcInject:absorb(entityId, object)
     player.interact("ScriptPane", deedpane)
   end
 
-  while world.entityExists(entityId) and #storage.grabbedParam > 0 do
+  while world.entityExists(entityId) and #storage.grabbedParam > 0 
+  and  world.magnitude(mcontroller.position(),objectPosition) < 20
+  do
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
     objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
     local offset = self:beamPosition(objectPosition)

@@ -24,9 +24,9 @@ function listManager:init(tenants)
 
     for i = 1, 5 do
         item = widget.addListItem(self.listPath)
-        --local widgetCanvas = widget.bindCanvas(self.listPath..item..self.template.canvas)
+      
         local tenant = tenants[i] or {}
-        --sb.logInfo("canvasPath:  %s.%s.%s",self.listPath, item, self.template.canvas)
+        
         self.items[item] = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, item, self.template.canvas)),
             tenant = tenant
