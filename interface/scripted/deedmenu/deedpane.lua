@@ -6,6 +6,45 @@ storage = storage or {}
 listManager = {}
 listManager.__index = listManager
 
+Tenant = {}
+Tenant.__index = Tenant
+
+function Tenant.new(...)
+    local self = {}
+    setmetatable(self, Tenant)
+    self:init(...)
+    return self
+end
+
+function Tenant.fromConfig(jsonIndex)
+    
+    local self = config.getParameter("tenants."..tostring(jsonIndex), {})
+   
+    if isEmpty(self) then
+        return nil
+    end
+    setmetatable(self, Tenant)
+    self:init(
+        {jsonIndex = jsonIndex, 
+        dataSource = "config"}
+    )
+    return self
+end
+
+function Tenant:init(args)
+    for k,v in pairs(args) do
+        self[k] = v
+    end
+end
+
+function Tenant:getPortrait(type)
+    sb.logInfo("tenant.getPortrait tenantPortraits.%s.%s",self.jsonIndex, type)
+    if self.dataSource == "config" then
+        local path = string.format("tenantPortraits.%s.%s", self.jsonIndex, type)
+        return config.getParameter(path)
+    end
+end
+
 function listManager.new(...)
     local self = {}
     setmetatable(self, listManager)
@@ -15,56 +54,54 @@ end
 
 function listManager:init(tenants)
     self.items = {}
-    self.itemNameByIndex = {}
+    self.itemIdByIndex = {}
     self.listPath = "tenantScrollArea.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
     self.template.portraitSlot = "portraitSlot"
-    self.listBackgroundColor = {125,168,201}
-    local item = nil
+
+
+    local itemId = nil
 
     for i = 1, math.min(#tenants+1, 5) do
-        item = widget.addListItem(self.listPath)
+        itemId = widget.addListItem(self.listPath)
       
         local tenant = tenants[i] or {}
         
-        self.items[item] = {
-            canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, item, self.template.canvas)),
-            portraitSlot = string.format("%s.%s.%s",self.listPath, item, self.template.portraitSlot),
-            tenant = tenant
+        self.items[itemId] = {
+            canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas)),
+            portraitSlot = string.format("%s.%s.%s",self.listPath, itemId, self.template.portraitSlot),
+            listItemPath = string.format("%s.%s", self.listPath, itemId),
+            listItemIndex = i,
+            tenant = Tenant.fromConfig(math.max(i-1, 0)),
+            isCreateNewItem = false
         }
-        table.insert(self.itemNameByIndex, item)
+        self.items[itemId].isCreateNewItem = self.items[itemId].tenant and true
+        table.insert(self.itemIdByIndex, item)
     end
+
+    --local firstItem = self.items[self.itemIdByIndex[1]]
+    
 
     local itemPortraitPosition = {15, 5}
     local itemSize = {100, 20}
     local itemTextPosition = {30, 9} 
 
-    --using filter due to ipair, don't need new list
-    util.each(self.itemNameByIndex, 
-    function(i, v)
-        local v = self.items[v]
+
+    util.each(self.itemIdByIndex, 
+    function(i, k)
+        local v = self.items[k]
         local iconItem = config.getParameter("iconItem")
         v.canvas:clear()
-        --v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, self.listBackgroundColor)
-        if isEmpty(v.tenant) then
-            v.canvas:drawText("New Tenant", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+
+        if v.isCreateNewItem then
+            v.canvas:drawText("Add Tenant", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
             widget.setItemSlotItem(v.portraitSlot, iconItem)
-            --v.canvas:drawImageDrawable("/interface/nullcharportraitpart.png", vec2.add(itemPortraitPosition, {0, 4}), 0.7)
             return
         end
-        --DEBUG: REPLACE WITH IMAGE
-        
         v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
-
-        iconItem.parameters.inventoryIcon = v.tenant.npcinjector.portraits.bust
+        iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
         widget.setItemSlotItem(v.portraitSlot, iconItem)
-        --[[
-        local imageSize = root.imageSize(v.tenant.npcinjector.portraits.bust[1].image)
-        for _,portrait in ipairs(v.tenant.npcinjector.portraits.bust) do
-            v.canvas:drawImageDrawable(portrait.image, vec2.add(itemPortraitPosition, portrait.position), 1.0, portrait.color)
-        end 
-        --]]
     end)
 end
 
@@ -76,6 +113,7 @@ end
 
 function init()
     self.timers = TimerManager:new()
+    self.prevHandItemName = "npcinjector"
 
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
         delay = 2,
@@ -83,11 +121,13 @@ function init()
         loop = true
       })
 
-    self.delayPaneDeath = Timer:new("delayPaneDeath", {
+    self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
-        completeCallback = delayPaneDeath,
-        loop = true
+        completeCallback = doNothing,
+        loop = false
     })
+    self.timers:manage(self.paneAliveCooldown)
+
     if not self.delayStagehandDeath:active() then
       self.delayStagehandDeath:start()
     end
@@ -104,6 +144,12 @@ function update(dt)
     if vec2.mag(distance) > 20 then
         pane.dismiss()
     end
+    local currentHandItem = player.primaryHandItem().name
+    if self.prevHandItemName ~= "npcinjector" and currentHandItem == "npcinjector" and not self.paneAliveCooldown:active() then
+        paneAliveReminder()
+        self.paneAliveCooldown:start()
+    end
+    self.prevHandItemName = currentHandItem
 end
 
 function dismissed()
@@ -115,11 +161,33 @@ function uninit()
     --dismissed()
 end
 
-function delayPaneDeath()
-
+function paneAliveReminder()
+    local stagehandId = config.getParameter("stagehandId")
+    local deedId = config.getParameter("deedId")
+    world.sendEntityMessage(player.id(), "npcinjector.paneAlive", stagehandId, deedId)
 end
 
 function delayStagehandDeath()
     local stagehandId = config.getParameter("stagehandId")
     promises:add(world.sendEntityMessage(stagehandId, "delayDeath"), nil, function() pane.dismiss() end)
 end
+
+function doNothing()
+end
+
+function hasPath(data, keyList, index, total)
+    if not index then
+        index = 1
+        total = math.max(#keyList, 1)
+    end
+    if index >= total then
+      return true
+    else
+      local firstKey = keyList[index]
+      if data[firstKey] ~= nil then
+        return hasPath(data[firstKey], keyList, index+1, total)
+      else
+        return false
+      end
+    end
+  end

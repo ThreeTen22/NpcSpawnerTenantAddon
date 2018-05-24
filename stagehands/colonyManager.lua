@@ -46,7 +46,9 @@ function update(dt)
                 return die()
             end
 
-            if not world.callScriptedEntity(self.deedId, "isOccupied") then
+            if world.callScriptedEntity(self.deedId, "isOccupied") then
+                world.callScriptedEntity(self.deedId, "respawnTenants")
+            else
                 world.callScriptedEntity(self.deedId, "scanVacantArea")
             end
             local tenants = getTenants()
@@ -58,15 +60,17 @@ function update(dt)
                 return die()
             end
             local entityId = nil
+            local tenantPortraits = {}
             for i,v in ipairs(tenants) do
                 entityId = world.loadUniqueEntity(tenants[i].uniqueId)
-                sb.logInfo("entityID: %s",entityId)
-                tenants[i].npcinjector = { portraits = {} }
-                tenants[i].npcinjector.portraits.full = world.entityPortrait(entityId, "full")
-                tenants[i].npcinjector.portraits.bust = world.entityPortrait(entityId, "head")
+                --sb.logInfo("entityID: %s",entityId)
+                tenantPortraits[i] = {}
+                
+                tenantPortraits[i].full = world.entityPortrait(entityId, "full")
+                tenantPortraits[i].head = world.entityPortrait(entityId, "head")
             end
             --sb.logInfo(sb.printJson(tenants, 1))
-            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants), 
+            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants, tenantPortraits), 
             function()
                 self.state = "main"
                 update = mainUpdate

@@ -8,6 +8,7 @@ NpcInject = WeaponAbility:new()
 function NpcInject:init()
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
+  self.paneAlive = false
   self.weapon.onLeaveAbility = function()
     self.weapon:setStance(self.stances.idle)
   end
@@ -22,18 +23,36 @@ function NpcInject:init()
     end
   end
   animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
-  message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants)
+  message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants, tenantPortraits)
+    sb.logInfo("npcinjector.onStagehandSuccess ")
     self.tenants = tenants
+    self.tenantPortraits = tenantPortraits
     self.stagehandId = id
     return true
   end)
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
+    sb.logInfo("npcinjector.onStagehandFailed")
     storage.grabbedParam = jarray()
   end)
 
+  message.setHandler("npcinjector.paneAlive", function(_,_,stagehandId, deedId)
+    sb.logInfo("npcinjector.paneAlive")
+    if not self.weapon.currentAbility and not self.paneAlive
+      and path(storage.grabbedParam, 1, "objectId") == deedId then
+
+    self.stagehandId = stagehandId
+    self.paneAlive = true
+    self:setState(self.absorb, storage.grabbedParam[1].objectId, storage.grabbedParam[1])
+    end
+  end)
+
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
+    sb.logInfo("npcinjector.onPaneDismissed")
     storage.grabbedParam = jarray()
-    animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
+    self.tenants = nil
+    self.tenantPortraits = nil
+    self.stagehandId = nil
+    self.paneAlive = false
   end)
 end
 
@@ -57,6 +76,10 @@ function NpcInject:update(dt, fireMode, shiftHeld)
   if self.fireMode == "alt" then
     --DEBUG:  DONT KEEP
     storage.grabbedParam = jarray()
+    self.tenants = nil
+    self.tenantPortraits = nil
+    self.stagehandId = nil
+    self.paneAlive = false
   end
   --[[
   local mag = world.magnitude(mcontroller.position(), activeItem.ownerAimPosition())
@@ -161,12 +184,13 @@ function NpcInject:absorb(entityId, object)
   
   local dUuid = world.entityUniqueId(entityId)
   local pUuid = player.uniqueId()
-  local stagehandId = world.spawnStagehand(objectPosition, "colonymanager", {deedId = entityId, deedUuid=dUuid, playerUuid=pUuid})
+
+  local stagehandId = self.stagehandId or world.spawnStagehand(objectPosition, "colonymanager", {deedId = entityId, deedUuid=dUuid, playerUuid=pUuid})
 
   while not world.entityExists(self.stagehandId or -1) and #storage.grabbedParam > 0 do
     coroutine.yield()
   end
-  if #storage.grabbedParam > 0 then
+  if #storage.grabbedParam > 0 and self.paneAlive == false then
     local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
     deedpane.deedUuid = dUuid
     deedpane.playerUuid = pUuid
@@ -174,6 +198,8 @@ function NpcInject:absorb(entityId, object)
     deedpane.deedId = entityId
     deedpane.stagehandPosition = objectPosition
     deedpane.tenants = self.tenants
+    deedpane.tenantPortraits = self.tenantPortraits
+
     player.interact("ScriptPane", deedpane)
   end
 
