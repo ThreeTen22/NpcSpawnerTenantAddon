@@ -9,6 +9,39 @@ listManager.__index = listManager
 Tenant = {}
 Tenant.__index = Tenant
 
+comp = {}
+
+comp.resolve = function(v) 
+    local vType = type(v)
+    if vType == "table" and v.func then
+        return self[v.func](table.unpack(v.args))
+    end
+    return v
+end
+
+comp.eq = function(v1, v2) return comp.resolve(v1) == comp.resolve(v2) end
+comp.ne = function(v1, v2) return comp.resolve(v1) ~= comp.resolve(v2) end
+comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
+comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
+comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
+comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
+
+
+function comp.result(path) 
+    local comparison = config.getParameter(path)
+    local output = false
+
+    local successes = util.filter(comparison, function(args)
+        sb.logInfo("comp-result-utilfilter: %s %s %s %s",args[1], sb.printJson(args[2]), args[3], args[4])
+        return comp[args[3]](args[2], args[4])
+    end)
+    sb.logInfo("comp_result: %s",sb.printJson(successes, 1))
+    if #successes == #comparison then
+        output = true
+    end
+    return output
+end
+
 function Tenant.new(...)
     local self = {}
     setmetatable(self, Tenant)
@@ -35,6 +68,7 @@ function Tenant:init(args)
     for k,v in pairs(args) do
         self[k] = v
     end
+    self.config = root.npcConfig(self.type)
 end
 
 function Tenant:getPortrait(type)
@@ -42,6 +76,21 @@ function Tenant:getPortrait(type)
     if self.dataSource == "config" then
         local path = string.format("tenantPortraits.%s.%s", self.jsonIndex, type)
         return config.getParameter(path)
+    end
+end
+
+function Tenant:instanceValue(jsonPath, default)
+    return self[jsonPath] or sb.jsonQuery(self.overrides, jsonPath) or sb.jsonQuery(self.config, jsonPath) or default
+end
+
+
+function Tenant:setInstanceValue(jsonPath, value)
+    if value then
+        if self[jsonPath] then
+            self[jsonPath] = value
+            return
+        end
+        jsonSetPath(self.overrides, jsonPath, value)
     end
 end
 
@@ -73,6 +122,7 @@ function listManager:init(tenants)
             portraitSlot = string.format("%s.%s.%s",self.listPath, itemId, self.template.portraitSlot),
             listItemPath = string.format("%s.%s", self.listPath, itemId),
             listItemIndex = i,
+            itemId = itemId,
             tenant = Tenant.fromConfig(math.max(i-1, 0)),
             isCreateNewItem = false
         }
@@ -107,6 +157,40 @@ function listManager:init(tenants)
 end
 
 
+function listManager:getSelectedItem()
+    local itemId = widget.getListSelected(self.listPath)
+    return self.items[itemId]
+end
+
+
+function listManager:setSelectedItem(id)
+    local itemId = id
+    if type(id) ~= "string" then
+        itemId = self.itemIdByIndex[id]
+    end
+    widget.setListSelected(self.listPath, itemId)
+end
+
+function listManager:itemInstanceValue(id, jsonPath, default)
+    
+    local item = self.items[id]
+
+    sb.logInfo("listmanger: iteminstancevalue %s %s %s", id, jsonPath, default)
+   
+    if item and type(item[jsonPath]) ~= "nil" then
+        return item[jsonPath]
+    end
+    --sb.logInfo("listmanger: jsonpath - forced item %s",item[jsonPath])
+    local path = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
+    if path[1] == "tenant" then
+        table.remove(path, 1)
+        if item.tenant then 
+            return item.tenant:instanceValue(table.concat(path, "."), default)
+        end
+    end
+    
+    return default
+end
 --[[
     imageSize   =   20
     1.0              y
@@ -115,6 +199,7 @@ end
 function init()
     self.timers = TimerManager:new()
     self.prevHandItemName = "npcinjector"
+
 
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
         delay = 2,
@@ -135,6 +220,15 @@ function init()
 
     self.timers:manage(self.delayStagehandDeath)
     listManager:init(config.getParameter("tenants"))
+
+    self.getSelectedItem = function()
+        return listManager:getSelectedItem()
+    end
+
+    self.selectedInstanceValue = function(jsonPath, default)
+        local itemId = widget.getListSelected(listManager.listPath)
+        return listManager:itemInstanceValue(itemId, jsonPath, default)
+    end
 end
 
 function update(dt)
@@ -160,6 +254,32 @@ end
 
 function uninit()
     --dismissed()
+end
+
+function onImportItemSlotInteraction(id)
+
+end
+
+function RemoveTenant(id, data)
+
+end
+
+function onSelectTenantListItem(id, data)
+   
+    local widgetsToCheck = config.getParameter("widgetsToCheck")
+
+    local checks = {}
+    util.each(widgetsToCheck, function(key,tableKeys)
+        widgetsToCheck[key].fullPath = config.getParameter(key..".fullPath")
+    end)
+    sb.logInfo("onSelectTenantListItem id: %s, data: %s", id, sb.printJson(widgetsToCheck or {}))
+
+    util.each(widgetsToCheck, function(key, tableKeys)
+       for i,v in ipairs(tableKeys) do
+        local compareResult = comp.result(key.."."..v)
+        widget[v](tableKeys.fullPath, compareResult)
+       end
+    end)
 end
 
 function paneAliveReminder()
