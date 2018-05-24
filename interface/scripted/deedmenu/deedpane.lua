@@ -19,16 +19,18 @@ function listManager:init(tenants)
     self.listPath = "tenantScrollArea.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
+    self.template.portraitSlot = "portraitSlot"
     self.listBackgroundColor = {125,168,201}
     local item = nil
 
-    for i = 1, 5 do
+    for i = 1, math.min(#tenants+1, 5) do
         item = widget.addListItem(self.listPath)
       
         local tenant = tenants[i] or {}
         
         self.items[item] = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, item, self.template.canvas)),
+            portraitSlot = string.format("%s.%s.%s",self.listPath, item, self.template.portraitSlot),
             tenant = tenant
         }
         table.insert(self.itemNameByIndex, item)
@@ -42,22 +44,27 @@ function listManager:init(tenants)
     util.each(self.itemNameByIndex, 
     function(i, v)
         local v = self.items[v]
+        local iconItem = config.getParameter("iconItem")
         v.canvas:clear()
-        v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, self.listBackgroundColor)
+        --v.canvas:drawRect({0,0,itemSize[1], itemSize[2]}, self.listBackgroundColor)
         if isEmpty(v.tenant) then
-            v.canvas:drawText("-- Empty -- ", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
-            v.canvas:drawImageDrawable("/interface/nullcharportraitpart.png", vec2.add(itemPortraitPosition, {0, 4}), 0.7)
+            v.canvas:drawText("New Tenant", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+            widget.setItemSlotItem(v.portraitSlot, iconItem)
+            --v.canvas:drawImageDrawable("/interface/nullcharportraitpart.png", vec2.add(itemPortraitPosition, {0, 4}), 0.7)
             return
         end
         --DEBUG: REPLACE WITH IMAGE
         
         v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
 
+        iconItem.parameters.inventoryIcon = v.tenant.npcinjector.portraits.bust
+        widget.setItemSlotItem(v.portraitSlot, iconItem)
+        --[[
         local imageSize = root.imageSize(v.tenant.npcinjector.portraits.bust[1].image)
         for _,portrait in ipairs(v.tenant.npcinjector.portraits.bust) do
             v.canvas:drawImageDrawable(portrait.image, vec2.add(itemPortraitPosition, portrait.position), 1.0, portrait.color)
         end 
-        
+        --]]
     end)
 end
 
