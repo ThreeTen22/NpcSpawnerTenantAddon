@@ -76,8 +76,9 @@ function listManager:init(tenants)
             tenant = Tenant.fromConfig(math.max(i-1, 0)),
             isCreateNewItem = false
         }
-        self.items[itemId].isCreateNewItem = self.items[itemId].tenant and true
-        table.insert(self.itemIdByIndex, item)
+        self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
+        sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
+        table.insert(self.itemIdByIndex, itemId)
     end
 
     --local firstItem = self.items[self.itemIdByIndex[1]]
