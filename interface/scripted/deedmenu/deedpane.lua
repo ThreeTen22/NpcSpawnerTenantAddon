@@ -29,6 +29,7 @@ comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
+comp.set = function(_, v2) return comp.resolve(v2) end
 
 comp.contains = function(v1, v2) 
     v1 = comp.resolve(v1)
@@ -41,15 +42,25 @@ end
 
 comp.drawText = function(canvas, text, args) args = comp.resolve(args); return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) end 
 
-function comp.result(path) 
-    local comparison = config.getParameter(path)
+function comp.result(fullPath, state, key) 
+
+    
+    local comparison = config.getParameter(string.format("%s.%s.%s", fullPath, state, key), config.getParameter(fullPath.."."..state))
+    
+    if type(comparison) == "string" then 
+        comparison = config.getParameter(string.format("%s.%s", comparison, key)) 
+    end
+   
+    
+    if type(comparison) ~= "table" then
+        return false
+    end
     local output = false
     local compareType = "compare"
     local successes = util.filter(comparison, function(args)
         compareType = args[1]
         return comp[args[3]](args[2], args[4])
     end)
-    --sb.logInfo("comp_result: %s",sb.printJson(successes, 1))
 
     if #successes == #comparison then
         output = true
@@ -145,10 +156,12 @@ function listManager:init(tenants)
         }
         
         items.checked = widget.getChecked(items.toggleButton)
-
+        if not items.tenant then
+            items.isCreateNewItem = true
+        end
         self.items[itemId] = items
         widget.setData(items.toggleButton, {itemId = items.itemId})
-        self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
+        
        -- sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
         table.insert(self.itemIdByIndex, itemId)
 
@@ -165,7 +178,7 @@ function listManager:init(tenants)
     util.each(self.itemIdByIndex, 
     function(i, k)
         local v = self.items[k]
-        local iconItem = config.getParameter("iconItem")
+        local iconItem = config.getParameter("npcItem")
         v.canvas:clear()
 
         if v.isCreateNewItem then
@@ -215,8 +228,8 @@ end
 
 function init()
     self.timers = TimerManager:new()
-    self.prevHandItemName = "npcinjector"
-
+    self.HandItemName = "npcinjector"
+    self.debug = true
 
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
         delay = 2,
@@ -249,6 +262,19 @@ function init()
             table.remove(args[1], 1)
             return widget[name](table.unpack(args))
         end
+    end
+    
+    self.getState = function()
+        return self.state
+    end
+
+    self.setState = function(state)
+        self.state = state
+        return self.onStateChange(state)
+    end
+
+    self.onStateChange = function(state)
+        updateWidgets(state)
     end
 
     self.hasSelectedListItem = function()
@@ -291,8 +317,8 @@ function init()
                 end
                 return true
             end
-            drawParam = config.getParameter("portraitCanvas.drawImage.newTenant")
-            self.portraitCanvas:drawImage(drawParam.image, center, drawParam.scale, drawParam.color, drawParam.centered)
+            --drawParam = config.getParameter("portraitCanvas.drawImage.newTenant")
+            --self.portraitCanvas:drawImage(drawParam.image, center, drawParam.scale, drawParam.color, drawParam.centered)
         end
     end
 
@@ -302,13 +328,14 @@ function init()
         if not item then
             return
         end
-        local actions
+        local actions = config.getParameter("detailCanvas.actions."..self.getState())
+        --[[
         if item.isCreateNewItem and not item.tenant then
             actions = config.getParameter("detailCanvas.actions.newTenant")
         else
             actions = config.getParameter("detailCanvas.actions.modify"..item.tenant:instanceValue("spawn"))
         end
-
+        --]]
         util.each(actions, function(i,v) 
             return comp[v[1]](self.detailCanvas, v[2], v[3])
         end)
@@ -317,7 +344,7 @@ function init()
     self.clearPortrait = function()
         self.portraitCanvas:clear()
     end
-
+    widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
     self.oneRun = false
 end
 
@@ -351,21 +378,54 @@ function uninit()
     --dismissed()
 end
 
-function onImportItemSlotInteraction(id)
+function onImportItemSlotInteraction(id, data)
+    local fullPath = "detailArea."..id
+    local item = player.swapSlotItem()
+    
+    if item and item.parameters and item.parameters.npcArgs then
+        if data == "npc" then
+            widget.setItemSlotItem(fullPath, player.swapSlotItem())
+            local tenant = tenantFromNpcCard(fullPath)
+            util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
+            world.sendEntityMessage(config.getParameter("stagehandId", -1), "addTenants", {tenant})
+        end
+        pane.dismiss()
+    end
 
 end
 
-function RemoveTenant(id, data)
+function tenantFromNpcCard(item)
+    if type(item) == "string" then
+        item = widget.itemSlotItem(item)
+    end
+    --local npcArgs = item.parameters.npcArgs
+    if hasPath(item.parameters.npcArgs, {"npcParam", "scriptConfig", "personality","storedOverrides"}) then
+        item.parameters.npcArgs.npcParam.scriptConfig.personality.storedOverrides = nil
+    end
+    local npcArgs = item.parameters.npcArgs
+    return {
+        spawn = "npc",
+        species = npcArgs.npcSpecies or npcArgs.npcParam.identity.species,
+        type = npcArgs.npcType,
+        seed = npcArgs.npcSeed,
+        overrides = copy(npcArgs.npcParam)
+    }
+end
 
+function RemoveTenant(id, data)
+    local npcUuid = self.selectedInstanceValue("tenant.uniqueId")
+    local spawn = self.selectedInstanceValue("tenant.spawn")
+
+    world.sendEntityMessage(config.getParameter("stagehandId", -1), "removeTenant", npcUuid, spawn)
+    pane.dismiss()
 end
 
 
 function onListItemPressed(id, data)
-    sb.logInfo("onListItemPressed")
     id = data.itemId
     local item = listManager.items[id]
     local checked = widget.getChecked(item.toggleButton)
-    if checked == true and item.checked ~= checked then
+    if checked == true and item.checked ~= true then
         util.each(listManager.items, function(iId, v)
             if iId ~= id then
                 v.checked = false
@@ -379,12 +439,17 @@ function onListItemPressed(id, data)
         end)
         listManager:setSelectedItem(id)
     end
-    return updateWidgets()
+    if item.isCreateNewItem then
+        self.setState("selectNew")
+    else
+        self.setState("selectTenant")
+    end
 end
 
 
-function updateWidgets()
-   
+function updateWidgets(state)
+
+    state = state or self.getState()
     local widgetsToCheck = config.getParameter("widgetsToCheck")
 
     local checks = {}
@@ -394,7 +459,7 @@ function updateWidgets()
 
     util.each(widgetsToCheck, function(key, tableKeys)
        for i,v in ipairs(tableKeys) do
-        local compareResult = comp.result(key.."."..v)
+        local compareResult = comp.result(key, state, v)
         widget[v](tableKeys.fullPath, compareResult)
        end
     end)

@@ -26,6 +26,7 @@ function init()
     message.setHandler("getTenants", simpleHandler(getTenants))
     message.setHandler("addTenants", simpleHandler(addTenants))
     message.setHandler("replaceTenants", simpleHandler(replaceTenants))
+    message.setHandler("removeTenant", simpleHandler(removeTenant))
 end
 
 function update(dt)
@@ -114,6 +115,14 @@ function isPlayerAlive()
     return false
 end
 
+function removeTenant(tenantUuid, spawn)
+    local entityId = world.loadUniqueEntity(tenantUuid)
+    if entityId ~= 0 then
+        world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
+        world.callScriptedEntity(entityId, "tenant.evictTenant")
+    end
+end
+
 function getTenants()
     if isDeedAlive() then
         local deedId = self.deedId
@@ -124,10 +133,14 @@ function getTenants()
 end
 
 function addTenants(tenantArray)
-    if isDeedAlive() then
+    if self.state == "main" and isDeedAlive() then
         local deedId = self.deedId
         for i,v in ipairs(tenantArray) do
-            world.callScriptedEntity(deedId, "addTenant", v)
+            local copiedV = copy(v)
+            if copiedV then
+            --sb.logInfo("colonyManager %s", sb.printJson(copiedV, 1))
+                world.callScriptedEntity(deedId, "addTenant", v)
+            end
         end
     end
 end
@@ -135,4 +148,17 @@ end
 function replaceTenants(tenant)
     local uniqueId = tenant.uniqueId
 
+end
+
+function copy(v)
+    if type(v) ~= "table" then
+      return v
+    else
+      local c = {}
+      for k,v in pairs(v) do
+        c[k] = copy(v)
+      end
+      setmetatable(c, getmetatable(v))
+      return c
+    end
 end
