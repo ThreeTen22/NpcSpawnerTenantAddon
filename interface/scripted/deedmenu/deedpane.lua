@@ -44,13 +44,16 @@ comp.drawText = function(canvas, text, args) args = comp.resolve(args); return c
 function comp.result(path) 
     local comparison = config.getParameter(path)
     local output = false
-
+    local compareType = "compare"
     local successes = util.filter(comparison, function(args)
-
+        compareType = args[1]
         return comp[args[3]](args[2], args[4])
     end)
     --sb.logInfo("comp_result: %s",sb.printJson(successes, 1))
+
     if #successes == #comparison then
+        output = true
+    elseif #successes > 0 and compareType == "anyof" then
         output = true
     end
     return output
@@ -117,30 +120,38 @@ end
 function listManager:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
+    self.selectedItemId = nil
     self.listPath = "tenantScrollArea.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
     self.template.portraitSlot = "portraitSlot"
-
-
+    self.template.toggleButton = "background"
+    widget.registerMemberCallback(self.listPath, "onListItemPressed", onListItemPressed)
     local itemId = nil
-
-    for i = 1, math.min(#tenants, 5) do
+    widget.clearListItems(self.listPath)
+    for i = 1, math.min(#tenants+1, 5) do
         itemId = widget.addListItem(self.listPath)
       
         local tenant = tenants[i] or {}
-        
-        self.items[itemId] = {
+        local items = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas)),
+            toggleButton = string.format("%s.%s.%s", self.listPath, itemId, self.template.toggleButton),
             portraitSlot = string.format("%s.%s.%s",self.listPath, itemId, self.template.portraitSlot),
             listItemPath = string.format("%s.%s", self.listPath, itemId),
             listItemIndex = i,
             itemId = itemId,
             tenant = Tenant.fromConfig(math.max(i-1, 0)),
+            isCreateNewItem = false
         }
-        --self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
+        
+        items.checked = widget.getChecked(items.toggleButton)
+
+        self.items[itemId] = items
+        widget.setData(items.toggleButton, {itemId = items.itemId})
+        self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
        -- sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
         table.insert(self.itemIdByIndex, itemId)
+
     end
 
     --local firstItem = self.items[self.itemIdByIndex[1]]
@@ -162,25 +173,19 @@ function listManager:init(tenants)
             widget.setItemSlotItem(v.portraitSlot, iconItem)
             return
         end
+
         v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
         iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
         widget.setItemSlotItem(v.portraitSlot, iconItem)
     end)
 end
 
-
-function listManager:getSelectedItem()
-    local itemId = widget.getListSelected(self.listPath)
-    return self.items[itemId]
+function listManager:setSelectedItem(id)
+    self.selectedItemId = id
 end
 
-
-function listManager:setSelectedItem(id)
-    local itemId = id
-    if type(id) ~= "string" then
-        itemId = self.itemIdByIndex[id]
-    end
-    widget.setListSelected(self.listPath, itemId)
+function listManager:getSelectedItem()
+    return self.items[self.selectedItemId]
 end
 
 function listManager:itemInstanceValue(id, jsonPath, default)
@@ -237,9 +242,28 @@ function init()
         return listManager:getSelectedItem()
     end
 
+    self.widgetFunc = function(...)
+        local args = {...}
+        local name = args[1]
+        if type(name) ~= "table" and widget[name] then
+            table.remove(args[1], 1)
+            return widget[name](table.unpack(args))
+        end
+    end
+
+    self.hasSelectedListItem = function()
+        if listManager.selectedItemId then
+            return true
+        end
+        return false
+    end
+
     self.selectedInstanceValue = function(jsonPath, default)
-        local itemId = widget.getListSelected(listManager.listPath)
-        return listManager:itemInstanceValue(itemId, jsonPath, default)
+        local itemId = listManager.selectedItemId
+        if itemId then
+            return listManager:itemInstanceValue(itemId, jsonPath, default)
+        end
+        return default
     end
 
     self.configParam = function(configPath, default)
@@ -257,13 +281,18 @@ function init()
         self.portraitCanvas:clear()
         local center = config.getParameter("portraitCanvas.center")
         local item = self.getSelectedItem()
-
+        local drawParam
         if item then
-            local portrait = item.tenant:getPortrait("full")
-            drawParam = config.getParameter("portraitCanvas.drawImage."..item.tenant:instanceValue("spawn"))
-            for i,drawable in ipairs(portrait) do
-                self.portraitCanvas:drawImage(drawable.image, vec2.add(center, drawable.position), drawParam.scale, drawable.color, drawParam.centered)
+            if item.tenant then
+                local portrait = item.tenant:getPortrait("full")
+                drawParam = config.getParameter("portraitCanvas.drawImage."..item.tenant:instanceValue("spawn"))
+                for i,drawable in ipairs(portrait) do
+                    self.portraitCanvas:drawImage(drawable.image, vec2.add(center, drawable.position), drawParam.scale, drawable.color, drawParam.centered)
+                end
+                return true
             end
+            drawParam = config.getParameter("portraitCanvas.drawImage.newTenant")
+            self.portraitCanvas:drawImage(drawParam.image, center, drawParam.scale, drawParam.color, drawParam.centered)
         end
     end
 
@@ -328,11 +357,33 @@ end
 
 function RemoveTenant(id, data)
 
-    sb.logInfo("ilistSelcted %s", id)
-    widget.setListSelected("tenantScrollArea.list", tostring(listManager.itemIdByIndex[1]))
 end
 
-function onSelectTenantListItem(id, data)
+
+function onListItemPressed(id, data)
+    sb.logInfo("onListItemPressed")
+    id = data.itemId
+    local item = listManager.items[id]
+    local checked = widget.getChecked(item.toggleButton)
+    if checked == true and item.checked ~= checked then
+        util.each(listManager.items, function(iId, v)
+            if iId ~= id then
+                v.checked = false
+            end
+        end)
+        item.checked = checked
+
+        util.each(listManager.items, function(iId, v)
+            widget.setChecked(v.toggleButton, v.checked)
+            widget.setButtonEnabled(v.toggleButton, not v.checked)
+        end)
+        listManager:setSelectedItem(id)
+    end
+    return updateWidgets()
+end
+
+
+function updateWidgets()
    
     local widgetsToCheck = config.getParameter("widgetsToCheck")
 
@@ -340,7 +391,6 @@ function onSelectTenantListItem(id, data)
     util.each(widgetsToCheck, function(key,tableKeys)
         widgetsToCheck[key].fullPath = config.getParameter(key..".fullPath")
     end)
-    --sb.logInfo("onSelectTenantListItem id: %s, data: %s", id, sb.printJson(widgetsToCheck or {}))
 
     util.each(widgetsToCheck, function(key, tableKeys)
        for i,v in ipairs(tableKeys) do
