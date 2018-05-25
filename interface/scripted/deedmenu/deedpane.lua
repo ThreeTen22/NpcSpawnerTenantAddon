@@ -1,5 +1,6 @@
 require "/objects/spawner/colonydeed/timer.lua"
 require "/scripts/vec2.lua"
+require "/scripts/rect.lua"
 require "/scripts/messageutil.lua"
 storage = storage or {}
 
@@ -14,6 +15,9 @@ comp = {}
 comp.resolve = function(v) 
     local vType = type(v)
     if vType == "table" and v.func then
+        for i,item in pairs(v.args) do
+            v.args[i] = comp.resolve(item)
+        end
         return self[v.func](table.unpack(v.args))
     end
     return v
@@ -26,16 +30,26 @@ comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
 
+comp.contains = function(v1, v2) 
+    v1 = comp.resolve(v1)
+    v2 = comp.resolve(v2)
+    if type(v1) == "table" then
+        return contains(v1, v2)
+    end
+end
+
+
+comp.drawText = function(canvas, text, args) args = comp.resolve(args); return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) end 
 
 function comp.result(path) 
     local comparison = config.getParameter(path)
     local output = false
 
     local successes = util.filter(comparison, function(args)
-        sb.logInfo("comp-result-utilfilter: %s %s %s %s",args[1], sb.printJson(args[2]), args[3], args[4])
+
         return comp[args[3]](args[2], args[4])
     end)
-    sb.logInfo("comp_result: %s",sb.printJson(successes, 1))
+    --sb.logInfo("comp_result: %s",sb.printJson(successes, 1))
     if #successes == #comparison then
         output = true
     end
@@ -72,7 +86,6 @@ function Tenant:init(args)
 end
 
 function Tenant:getPortrait(type)
-    sb.logInfo("tenant.getPortrait tenantPortraits.%s.%s",self.jsonIndex, type)
     if self.dataSource == "config" then
         local path = string.format("tenantPortraits.%s.%s", self.jsonIndex, type)
         return config.getParameter(path)
@@ -112,7 +125,7 @@ function listManager:init(tenants)
 
     local itemId = nil
 
-    for i = 1, math.min(#tenants+1, 5) do
+    for i = 1, math.min(#tenants, 5) do
         itemId = widget.addListItem(self.listPath)
       
         local tenant = tenants[i] or {}
@@ -124,10 +137,9 @@ function listManager:init(tenants)
             listItemIndex = i,
             itemId = itemId,
             tenant = Tenant.fromConfig(math.max(i-1, 0)),
-            isCreateNewItem = false
         }
-        self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
-        sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
+        --self.items[itemId].isCreateNewItem = not (self.items[itemId].tenant and true)
+       -- sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
         table.insert(self.itemIdByIndex, itemId)
     end
 
@@ -176,15 +188,15 @@ function listManager:itemInstanceValue(id, jsonPath, default)
     local item = self.items[id]
 
     sb.logInfo("listmanger: iteminstancevalue %s %s %s", id, jsonPath, default)
-   
-    if item and type(item[jsonPath]) ~= "nil" then
+    if not item then return default end
+    if type(item[jsonPath]) ~= "nil" then
         return item[jsonPath]
     end
     --sb.logInfo("listmanger: jsonpath - forced item %s",item[jsonPath])
     local path = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
     if path[1] == "tenant" then
         table.remove(path, 1)
-        if item.tenant then 
+        if item and item.tenant then 
             return item.tenant:instanceValue(table.concat(path, "."), default)
         end
     end
@@ -229,12 +241,66 @@ function init()
         local itemId = widget.getListSelected(listManager.listPath)
         return listManager:itemInstanceValue(itemId, jsonPath, default)
     end
+
+    self.configParam = function(configPath, default)
+        return config.getParameter(configPath, default)
+    end
+
+    self.selectedOption = function(widgetPath)
+        return widget.getSelectedOption(widgetPath)
+    end
+    
+    self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
+    self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
+
+    self.drawPortrait = function()
+        self.portraitCanvas:clear()
+        local center = config.getParameter("portraitCanvas.center")
+        local item = self.getSelectedItem()
+
+        if item then
+            local portrait = item.tenant:getPortrait("full")
+            drawParam = config.getParameter("portraitCanvas.drawImage."..item.tenant:instanceValue("spawn"))
+            for i,drawable in ipairs(portrait) do
+                self.portraitCanvas:drawImage(drawable.image, vec2.add(center, drawable.position), drawParam.scale, drawable.color, drawParam.centered)
+            end
+        end
+    end
+
+    self.drawDetails = function()
+        self.detailCanvas:clear()
+        local item = self.getSelectedItem()
+        if not item then
+            return
+        end
+        local actions
+        if item.isCreateNewItem and not item.tenant then
+            actions = config.getParameter("detailCanvas.actions.newTenant")
+        else
+            actions = config.getParameter("detailCanvas.actions.modify"..item.tenant:instanceValue("spawn"))
+        end
+
+        util.each(actions, function(i,v) 
+            return comp[v[1]](self.detailCanvas, v[2], v[3])
+        end)
+    end
+
+    self.clearPortrait = function()
+        self.portraitCanvas:clear()
+    end
+
+    self.oneRun = false
 end
+
 
 function update(dt)
     self.timers:update(dt)
     local currentPosition = world.entityPosition(player.id())
     local distance = world.distance(currentPosition, config.getParameter("stagehandPosition"))
+    if not self.oneRun then
+        --onSelectTenantListItem()
+        self.oneRun = true
+    end
 
     if vec2.mag(distance) > 20 then
         pane.dismiss()
@@ -262,6 +328,8 @@ end
 
 function RemoveTenant(id, data)
 
+    sb.logInfo("ilistSelcted %s", id)
+    widget.setListSelected("tenantScrollArea.list", tostring(listManager.itemIdByIndex[1]))
 end
 
 function onSelectTenantListItem(id, data)
@@ -272,7 +340,7 @@ function onSelectTenantListItem(id, data)
     util.each(widgetsToCheck, function(key,tableKeys)
         widgetsToCheck[key].fullPath = config.getParameter(key..".fullPath")
     end)
-    sb.logInfo("onSelectTenantListItem id: %s, data: %s", id, sb.printJson(widgetsToCheck or {}))
+    --sb.logInfo("onSelectTenantListItem id: %s, data: %s", id, sb.printJson(widgetsToCheck or {}))
 
     util.each(widgetsToCheck, function(key, tableKeys)
        for i,v in ipairs(tableKeys) do
@@ -280,6 +348,8 @@ function onSelectTenantListItem(id, data)
         widget[v](tableKeys.fullPath, compareResult)
        end
     end)
+    self.drawDetails()
+    self.drawPortrait()
 end
 
 function paneAliveReminder()

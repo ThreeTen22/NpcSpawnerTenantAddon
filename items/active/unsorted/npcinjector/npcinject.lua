@@ -8,6 +8,9 @@ NpcInject = WeaponAbility:new()
 function NpcInject:init()
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
+  self.tenants = nil
+  self.tenantPortraits = nil
+  self.stagehandId = nil
   self.paneAlive = false
   self.weapon.onLeaveAbility = function()
     self.weapon:setStance(self.stances.idle)
