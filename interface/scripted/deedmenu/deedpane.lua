@@ -132,12 +132,12 @@ function listManager:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = nil
-    self.listPath = "tenantScrollArea.list"
+    self.listPath = "listLayout.list"
     self.template = {}
     self.template.canvas = "portraitCanvas"
     self.template.portraitSlot = "portraitSlot"
     self.template.toggleButton = "background"
-    widget.registerMemberCallback(self.listPath, "onListItemPressed", onListItemPressed)
+    widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
     local itemId = nil
     widget.clearListItems(self.listPath)
     for i = 1, math.min(#tenants+1, 5) do
@@ -421,7 +421,7 @@ function RemoveTenant(id, data)
 end
 
 
-function onListItemPressed(id, data)
+function onTenantListItemPressed(id, data)
     id = data.itemId
     local item = listManager.items[id]
     local checked = widget.getChecked(item.toggleButton)
