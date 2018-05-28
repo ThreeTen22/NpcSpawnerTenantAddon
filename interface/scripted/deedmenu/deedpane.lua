@@ -370,12 +370,12 @@ function update(dt)
 end
 
 function dismissed()
-    world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
-    world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
+
 end
 
 function uninit()
-    --dismissed()
+    world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
+    world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 
 function onImportItemSlotInteraction(id, data)
