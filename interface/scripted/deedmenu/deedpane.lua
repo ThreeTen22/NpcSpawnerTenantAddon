@@ -4,7 +4,13 @@ require "/scripts/rect.lua"
 require "/scripts/messageutil.lua"
 storage = storage or {}
 
-listManager = {}
+listManager = {
+    template = {
+        canvas = "portraitCanvas",
+        portraitSlot = "portraitSlot",
+        toggleButton = "background"
+    }
+}
 listManager.__index = listManager
 
 Tenant = {}
@@ -132,17 +138,14 @@ function listManager:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = nil
-    self.listPath = "listLayout.list"
-    self.template = {}
-    self.template.canvas = "portraitCanvas"
-    self.template.portraitSlot = "portraitSlot"
-    self.template.toggleButton = "background"
+    self.listPath = "listLayout.tenantList"
+
     widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
     local itemId = nil
     widget.clearListItems(self.listPath)
     for i = 1, math.min(#tenants+1, 5) do
         itemId = widget.addListItem(self.listPath)
-      
+        
         local tenant = tenants[i] or {}
         local items = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas)),
@@ -151,7 +154,7 @@ function listManager:init(tenants)
             listItemPath = string.format("%s.%s", self.listPath, itemId),
             listItemIndex = i,
             itemId = itemId,
-            tenant = Tenant.fromConfig(math.max(i-1, 0)),
+            tenant = Tenant.fromConfig(i-1),
             isCreateNewItem = false
         }
         
@@ -231,6 +234,8 @@ function init()
     self.HandItemName = "npcinjector"
     self.debug = true
 
+    --tenant = Tenant.fromConfig(math.max(i-1, 0))
+
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
         delay = 2,
         completeCallback = delayStagehandDeath,
@@ -239,7 +244,7 @@ function init()
 
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
-        completeCallback = doNothing,
+        completeCallback = checkIfAlive,
         loop = false
     })
     self.timers:manage(self.paneAliveCooldown)
@@ -345,7 +350,6 @@ function init()
         self.portraitCanvas:clear()
     end
     widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
-    self.oneRun = false
 end
 
 
@@ -353,10 +357,6 @@ function update(dt)
     self.timers:update(dt)
     local currentPosition = world.entityPosition(player.id())
     local distance = world.distance(currentPosition, config.getParameter("stagehandPosition"))
-    if not self.oneRun then
-        --onSelectTenantListItem()
-        self.oneRun = true
-    end
 
     if vec2.mag(distance) > 20 then
         pane.dismiss()
@@ -478,7 +478,10 @@ function delayStagehandDeath()
     promises:add(world.sendEntityMessage(stagehandId, "delayDeath"), nil, function() pane.dismiss() end)
 end
 
-function doNothing()
+function checkIfAlive()
+    if not world.entityExists(config.getParameter("stagehandId", -1)) then
+        pane.dismiss()
+    end
 end
 
 function hasPath(data, keyList, index, total)

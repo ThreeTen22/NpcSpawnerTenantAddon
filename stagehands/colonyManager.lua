@@ -9,7 +9,7 @@ function init()
     self.timers = TimerManager:new()
 
     self.deathTimer = Timer:new("deathTimer", {
-        delay = 5.0,
+        delay = 3.0,
         completeCallback = die,
         loop = false
       })
@@ -62,6 +62,7 @@ function update(dt)
             end
             local entityId = nil
             local tenantPortraits = {}
+            local typeConfig = {}
             for i,v in ipairs(tenants) do
                 entityId = world.loadUniqueEntity(tenants[i].uniqueId)
                 --sb.logInfo("entityID: %s",entityId)
@@ -69,9 +70,16 @@ function update(dt)
                 
                 tenantPortraits[i].full = world.entityPortrait(entityId, "full")
                 tenantPortraits[i].head = world.entityPortrait(entityId, "head")
+
+                if v.spawn == "npc" then
+                    typeConfig[i] = root.npcConfig(v.type)
+                else
+                    typeConfig[i] = root.monsterParameters(v.type)
+                end
+
             end
             --sb.logInfo(sb.printJson(tenants, 1))
-            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants, tenantPortraits), 
+            promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",id, tenants, tenantPortraits, typeConfig), 
             function()
                 self.state = "main"
                 update = mainUpdate
