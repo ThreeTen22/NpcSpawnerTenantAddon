@@ -149,6 +149,7 @@ function listManager:init(tenants)
         local tenant = tenants[i] or {}
         local items = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas)),
+            canvasPath = string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas),
             toggleButton = string.format("%s.%s.%s", self.listPath, itemId, self.template.toggleButton),
             portraitSlot = string.format("%s.%s.%s",self.listPath, itemId, self.template.portraitSlot),
             listItemPath = string.format("%s.%s", self.listPath, itemId),
@@ -233,7 +234,7 @@ function init()
     self.timers = TimerManager:new()
     self.HandItemName = "npcinjector"
     self.debug = true
-
+    --pane.setTitle("Colony Deedifyer MK10", "Its bigger than bread!!")
     --tenant = Tenant.fromConfig(math.max(i-1, 0))
 
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
@@ -358,7 +359,7 @@ function update(dt)
 end
 
 function dismissed()
-   -- world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
+    world.sendEntityMessage(pane.sourceEntity() or -1, "colonyManager.die")
     world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 
@@ -420,10 +421,11 @@ function onTenantListItemPressed(id, data)
             end
         end)
         item.checked = checked
-
+        local canvasData = widget.getData(listManager.items[1].canvasPath)
         util.each(listManager.items, function(iId, v)
             widget.setChecked(v.toggleButton, v.checked)
             widget.setButtonEnabled(v.toggleButton, not v.checked)
+            v.canvas:drawImage(canvasData[tostring(v.checked)], {0,0})
         end)
         listManager:setSelectedItem(id)
     end

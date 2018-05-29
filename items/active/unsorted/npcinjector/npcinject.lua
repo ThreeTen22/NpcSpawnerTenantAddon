@@ -6,7 +6,7 @@ require "/scripts/util.lua"
 NpcInject = WeaponAbility:new()
 
 function NpcInject:init()
-  if not storage then storage = {} end
+  --if not storage then storage = {} end
   self.debug = true
   util.setDebug(true)
   util.debugLog("Ininit")
@@ -24,10 +24,24 @@ function NpcInject:init()
 
   message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants, tenantPortraits, typeConfig)
     util.debugLog("npcinjector.onStagehandSuccess ")
-    self.tenants = tenants
-    self.tenantPortraits = tenantPortraits
-    self.typeConfig = typeConfig
+
     storage.stagehandId = id
+
+    local dUuid = world.entityUniqueId(storage.spawner.deedId)
+    local pUuid = player.uniqueId()
+
+    local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
+
+    deedpane.deedUuid = dUuid
+    deedpane.playerUuid = pUuid
+    deedpane.stagehandId = stagehandId or storage.stagehandId
+    deedpane.deedId = storage.spawner.deedId
+    deedpane.deedPosition = storage.spawner.position
+    deedpane.tenants = tenants
+    deedpane.tenantPortraits = tenantPortraits
+    deedpane.configs = typeConfig
+    player.interact("ScriptPane", deedpane, id)
+
     return true
   end)
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
@@ -43,7 +57,7 @@ function NpcInject:init()
     storage.spawner = nil
     storage.stagehandId = nil
 
-    --self.cooldownTimer = self.cooldownTime
+    self.cooldownTimer = self.cooldownTime
   end)
 
   animator.setGlobalTag("absorbed", string.format("%s", 0))
@@ -62,10 +76,12 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     if not storage.spawner then
       self:setState(self.scan)
     elseif world.entityExists(storage.stagehandId or -1) then
-      self:setState(self.absorb, storage.stagehandId, storage.spawner)
+      self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
     else
       animator.playSound("error")
       self.cooldownTimer = self.cooldownTime
+      storage.spawner = nil
+      storage.stagehandId = nil
     end
   end
   if self.fireMode == "alt" then
@@ -80,13 +96,12 @@ function NpcInject:update(dt, fireMode, shiftHeld)
 
   if storage.spawner and storage.stagehandId 
   and not self.weapon.currentAbility
-  and self.cooldownTimer == 0
   and world.entityExists(storage.spawner.deedId) 
   and world.entityExists(storage.stagehandId) then
 
     animator.setGlobalTag("absorbed", string.format("%s", 3))
-    self:setState(self.absorb, stagehandId, storage.spawner)
-
+    self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
+    self.cooldownTimer = self.cooldownTime
   end
 
   --[[
@@ -129,33 +144,36 @@ function NpcInject:scan()
     if #objects > 0 then
       local spawner = {}
       local deedId = objects[1]
+      local dUuid = world.entityUniqueId(deedId)
+      local pUuid = player.uniqueId()
+      local position = world.entityPosition(deedId)
+      local returnValue = false
       if not storage.spawner then
         
         world.sendEntityMessage((storage.stagehandId or -1), "colonyManager.die")
         storage.stagehandId = nil
        
-        local dUuid = world.entityUniqueId(deedId)
-        local pUuid = player.uniqueId()
-        local position = world.entityPosition(deedId)
         spawner = world.getObjectParameter(deedId, "deed") or {}
         spawner.position = position
-        spawner.deedId = deedId
         spawner.attachPoint = {0,0}
+        spawner.deedId = deedId
         storage.spawner = spawner
-        
-        world.spawnStagehand(mcontroller.position(), "colonymanager", 
+        returnValue = true
+      end
+      if not (storage.stagehandId and world.entityExists(storage.stagehandId)) then
+      storage.stagehandId = world.spawnStagehand(mcontroller.position(), "colonymanager", 
         { deedId = deedId,
           deedPosition = position,
           deedUuid=dUuid, 
-          playerUuid=pUuid
+          playerUuid=pUuid,
+          playerId=player.id()
         })
-
-
-        self:setState(self.absorb, stagehandId, spawner)
-        return true
-      else
-        return false
+        returnValue = true
       end
+      if returnValue == true then
+        self:setState(self.absorb, deedId, storage.stagehandId, storage.spawner)
+      end
+      return returnValue
     end
     coroutine.yield()
   end
@@ -165,7 +183,7 @@ function NpcInject:scan()
 end
 
 
-function NpcInject:absorb(stagehandId, spawner)
+function NpcInject:absorb(deedId, stagehandId, spawner)
   animator.stopAllSounds("scanning")
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
@@ -177,8 +195,8 @@ function NpcInject:absorb(stagehandId, spawner)
 
   local timer = 0
   while timer < self.beamReturnTime do
-    if world.entityExists(spawner.deedId) then
-      spawnerPos = vec2.add(world.entityPosition(spawner.deedId), spawner.attachPoint)
+    if world.entityExists(deedId) then
+      spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
     end
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
     local offset = self:beamPosition(spawnerPos)
@@ -192,34 +210,16 @@ function NpcInject:absorb(stagehandId, spawner)
   local scanTimer = 1
   animator.stopAllSounds("loop")
   
-  local dUuid = world.entityUniqueId(spawner.deedId)
-  local pUuid = player.uniqueId()
+
  
   while not world.entityExists(storage.stagehandId or -1) and storage.spawner do
     coroutine.yield()
   end
 
-  if storage.spawner and not stagehandId then
-    local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
-    local tenants = self.tenants
-    local tenantPortraits = self.tenantPortraits
-    local typeConfig = self.typeConfig
-    self.tenants, self.tenantPortraits, self.typeConfig = {}, {}, {}
-    deedpane.deedUuid = dUuid
-    deedpane.playerUuid = pUuid
-    deedpane.stagehandId = storage.stagehandId
-    deedpane.deedId = storage.spawner.deedId
-    deedpane.deedPosition = spawnerPos
-    deedpane.tenants = tenants
-    deedpane.tenantPortraits = tenantPortraits
-    deedpane.configs = typeConfig
-    activeItem.interact("ScriptPane", deedpane, storage.stagehandId)
-  end
-
   while world.entityExists(storage.stagehandId or -1)
   do
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
-    spawnerPos = vec2.add(world.entityPosition(spawner.deedId), spawner.attachPoint)
+    spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
     local offset = self:beamPosition(spawnerPos)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
 
