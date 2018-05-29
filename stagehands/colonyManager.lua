@@ -25,10 +25,8 @@ function init()
         loop = true
     }
 
-    if not self.checkOnDeed:active() then
-        self.checkOnDeed:start()
-      end
-      self.timers:manage(self.checkOnDeed)
+    self.checkOnDeed:start()
+    self.timers:manage(self.checkOnDeed)
       
 
 
@@ -105,10 +103,6 @@ function update(dt)
 end
 
 function mainUpdate(dt)
-    if not isDeedAlive() then
-        sb.logInfo("colonyManager.mainUpdate:  dying")
-        stagehand.die()
-    end
     promises:update()
     self.timers:update(dt)
 end
@@ -130,6 +124,7 @@ function updateSelf()
     else
         stagehand.die()
     end
+    sb.logInfo("updateSelf Result:  %s  %s", live, playerPos)
 end
 
 function isDeedAlive()

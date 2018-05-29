@@ -43,7 +43,7 @@ function NpcInject:init()
     storage.spawner = nil
     storage.stagehandId = nil
 
-    self.cooldownTimer = self.cooldownTime
+    --self.cooldownTimer = self.cooldownTime
   end)
 
   animator.setGlobalTag("absorbed", string.format("%s", 0))
@@ -129,21 +129,26 @@ function NpcInject:scan()
     if #objects > 0 then
       local spawner = {}
       local deedId = objects[1]
-      if not storage.spawner or (storage.spawner and storage.spawner.deedId ~= deedId) then
+      if not storage.spawner then
         
         world.sendEntityMessage((storage.stagehandId or -1), "colonyManager.die")
         storage.stagehandId = nil
+       
+        local dUuid = world.entityUniqueId(deedId)
+        local pUuid = player.uniqueId()
         local position = world.entityPosition(deedId)
         spawner = world.getObjectParameter(deedId, "deed") or {}
         spawner.position = position
         spawner.deedId = deedId
         spawner.attachPoint = {0,0}
         storage.spawner = spawner
-
-        local dUuid = world.entityUniqueId(deedId)
-        local pUuid = player.uniqueId()
-      
-        world.spawnStagehand(mcontroller.position(), "colonymanager", {deedId = deedId, deedUuid=dUuid, playerUuid=pUuid})
+        
+        world.spawnStagehand(mcontroller.position(), "colonymanager", 
+        { deedId = deedId,
+          deedPosition = position,
+          deedUuid=dUuid, 
+          playerUuid=pUuid
+        })
 
 
         self:setState(self.absorb, stagehandId, spawner)
@@ -173,7 +178,7 @@ function NpcInject:absorb(stagehandId, spawner)
   local timer = 0
   while timer < self.beamReturnTime do
     if world.entityExists(spawner.deedId) then
-      spawnerPos = vec2.add(spawner.position, spawner.attachPoint)
+      spawnerPos = vec2.add(world.entityPosition(spawner.deedId), spawner.attachPoint)
     end
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
     local offset = self:beamPosition(spawnerPos)
@@ -189,7 +194,7 @@ function NpcInject:absorb(stagehandId, spawner)
   
   local dUuid = world.entityUniqueId(spawner.deedId)
   local pUuid = player.uniqueId()
-  local newStagehand = false
+ 
   while not world.entityExists(storage.stagehandId or -1) and storage.spawner do
     coroutine.yield()
   end
@@ -199,22 +204,22 @@ function NpcInject:absorb(stagehandId, spawner)
     local tenants = self.tenants
     local tenantPortraits = self.tenantPortraits
     local typeConfig = self.typeConfig
+    self.tenants, self.tenantPortraits, self.typeConfig = {}, {}, {}
     deedpane.deedUuid = dUuid
     deedpane.playerUuid = pUuid
     deedpane.stagehandId = storage.stagehandId
-    deedpane.deedId = deedId
+    deedpane.deedId = storage.spawner.deedId
     deedpane.deedPosition = spawnerPos
     deedpane.tenants = tenants
     deedpane.tenantPortraits = tenantPortraits
     deedpane.configs = typeConfig
     activeItem.interact("ScriptPane", deedpane, storage.stagehandId)
-    self.tenants, self.tenantPortraits, self.typeConfig = {}, {}, {}
   end
 
   while world.entityExists(storage.stagehandId or -1)
   do
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
-    spawnerPos = vec2.add(spawner.position, spawner.attachPoint)
+    spawnerPos = vec2.add(world.entityPosition(spawner.deedId), spawner.attachPoint)
     local offset = self:beamPosition(spawnerPos)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
 

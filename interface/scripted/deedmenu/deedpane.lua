@@ -355,14 +355,10 @@ end
 
 function update(dt)
     self.timers:update(dt)
-
-    if world.magnitude(currentPosition, config.getParameter("deedPosition")) > 20 then
-        pane.dismiss()
-    end
 end
 
 function dismissed()
-    world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
+   -- world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
     world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 

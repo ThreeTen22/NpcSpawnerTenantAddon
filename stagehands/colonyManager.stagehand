@@ -7,13 +7,11 @@
         "/stagehands/colonymanager.lua"
     ],
     "scriptDelta" : 5,
-    
+
     "deedUuid": null,
     "playerUuid": null, 
+    "playerId" : null,
     "stagehandId": null,
     "deedId": null,
-    "deedPosition": null,
-    "tenants": [],
-    "tenantPortraits" : [],
-    "configs" : []
+    "deedPosition": null
 }
