@@ -144,12 +144,12 @@ function listManager:init(tenants)
     local itemId = nil
     widget.clearListItems(self.listPath)
     for i = 1, math.min(#tenants+1, 5) do
+        
         itemId = widget.addListItem(self.listPath)
         
         local tenant = tenants[i] or {}
         local items = {
             canvas = widget.bindCanvas(string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas)),
-            canvasPath = string.format("%s.%s.%s",self.listPath, itemId, self.template.canvas),
             toggleButton = string.format("%s.%s.%s", self.listPath, itemId, self.template.toggleButton),
             portraitSlot = string.format("%s.%s.%s",self.listPath, itemId, self.template.portraitSlot),
             listItemPath = string.format("%s.%s", self.listPath, itemId),
@@ -421,11 +421,9 @@ function onTenantListItemPressed(id, data)
             end
         end)
         item.checked = checked
-        local canvasData = widget.getData(listManager.items[1].canvasPath)
         util.each(listManager.items, function(iId, v)
             widget.setChecked(v.toggleButton, v.checked)
             widget.setButtonEnabled(v.toggleButton, not v.checked)
-            v.canvas:drawImage(canvasData[tostring(v.checked)], {0,0})
         end)
         listManager:setSelectedItem(id)
     end
