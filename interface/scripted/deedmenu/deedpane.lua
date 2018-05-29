@@ -355,27 +355,19 @@ end
 
 function update(dt)
     self.timers:update(dt)
-    local currentPosition = world.entityPosition(player.id())
-    local distance = world.distance(currentPosition, config.getParameter("stagehandPosition"))
 
-    if vec2.mag(distance) > 20 then
+    if world.magnitude(currentPosition, config.getParameter("deedPosition")) > 20 then
         pane.dismiss()
     end
-    local currentHandItem = player.primaryHandItem().name
-    if self.prevHandItemName ~= "npcinjector" and currentHandItem == "npcinjector" and not self.paneAliveCooldown:active() then
-        paneAliveReminder()
-        self.paneAliveCooldown:start()
-    end
-    self.prevHandItemName = currentHandItem
 end
 
 function dismissed()
-
+    world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
+    world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 
 function uninit()
-    world.sendEntityMessage(config.getParameter("stagehandId", -1), "paneDismissed")
-    world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
+
 end
 
 function onImportItemSlotInteraction(id, data)
@@ -468,14 +460,14 @@ function updateWidgets(state)
 end
 
 function paneAliveReminder()
-    local stagehandId = config.getParameter("stagehandId")
-    local deedId = config.getParameter("deedId")
-    world.sendEntityMessage(player.id(), "npcinjector.paneAlive", stagehandId, deedId)
+    --local stagehandId = config.getParameter("stagehandId")
+    --local deedId = config.getParameter("deedId")
+    --world.sendEntityMessage(player.id(), "npcinjector.paneAlive", stagehandId, deedId)
 end
 
 function delayStagehandDeath()
-    local stagehandId = config.getParameter("stagehandId")
-    promises:add(world.sendEntityMessage(stagehandId, "delayDeath"), nil, function() pane.dismiss() end)
+    --local stagehandId = config.getParameter("stagehandId")
+    --promises:add(world.sendEntityMessage(stagehandId, "delayDeath"), nil, function() pane.dismiss() end)
 end
 
 function checkIfAlive()

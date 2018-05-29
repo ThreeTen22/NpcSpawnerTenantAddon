@@ -7,7 +7,7 @@ function init()
     self.state = "init"
 
     self.timers = TimerManager:new()
-
+    --[[
     self.deathTimer = Timer:new("deathTimer", {
         delay = 3.0,
         completeCallback = die,
@@ -16,13 +16,25 @@ function init()
     if not self.deathTimer:active() then
       self.deathTimer:start()
     end
-
     self.timers:manage(self.deathTimer)
+    --]]
+
+    self.checkOnDeed = Timer:new("checkOnDeed"), {
+        delay = 0.5,
+        completeCallback = updateSelf,
+        loop = true
+    }
+
+    if not self.checkOnDeed:active() then
+        self.checkOnDeed:start()
+      end
+      self.timers:manage(self.checkOnDeed)
+      
 
 
-
-    message.setHandler("delayDeath", function(...) self.deathTimer:reset() return true end)
-    message.setHandler("onPaneDismissed", function(...) die() end)
+    --message.setHandler("delayDeath", function(...) self.deathTimer:reset() return true end)
+    message.setHandler("onPaneDismissed", function(...) stagehand.die() end)
+    message.setHandler("colonyManager.die", function(...) stagehand.die() end)
     message.setHandler("getTenants", simpleHandler(getTenants))
     message.setHandler("addTenants", simpleHandler(addTenants))
     message.setHandler("replaceTenants", simpleHandler(replaceTenants))
@@ -36,15 +48,15 @@ function update(dt)
         mainUpdate(dt)
     elseif self.state == "init" then
         if promises:empty() then
-            if self.deedId == "" 
-            or self.playerUuid == "" then
+            if not self.deedId
+            or not self.playerUuid then
                 sb.logError("colonyManager:  init deedUuid or playerUuid was not provided: \n or deed does not belong to player")
-                return die()
+                return stagehand.die()
             end
             if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid then
                 world.callScriptedEntity(self.deedId, "object.say", "This deed does not belong to you.")
                 world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
-                return die()
+                return stagehand.die()
             end
 
             if world.callScriptedEntity(self.deedId, "isOccupied") then
@@ -58,7 +70,7 @@ function update(dt)
             if #tenants == 0 then
                 world.callScriptedEntity(self.deedId, "object.say", "This deed requires a valid house with at least one tenant before modification can occur.")
                 world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOccupied"})
-                return die()
+                return stagehand.die()
             end
             local entityId = nil
             local tenantPortraits = {}
@@ -86,7 +98,7 @@ function update(dt)
             end,
             function()
                 sb.logError("npcinjector.onStagehandSuccess failed")
-                return die()
+                return stagehand.die()
             end)
         end
     end
@@ -95,22 +107,33 @@ end
 function mainUpdate(dt)
     if not isDeedAlive() then
         sb.logInfo("colonyManager.mainUpdate:  dying")
-        die()
+        stagehand.die()
     end
     promises:update()
     self.timers:update(dt)
 end
 
-function die()
+function uninit()
     stagehand.die()
 end
 
-function uninit()
-    die()
+function updateSelf()
+    local live = false
+    local playerPos = world.findUniqueEntity(self.playerUuid):result()
+    if isDeedAlive() and playerPos then
+        if world.magnitude(playerPos, config.getParameter("deedPosition") < 20) then
+            live = true
+        end
+    end
+    if live then 
+        stagehand.setPosition(playerPos)
+    else
+        stagehand.die()
+    end
 end
 
 function isDeedAlive()
-    if world.entityExists(self.deedId or -1) and world.entityName(self.deedId) == "colonydeed" then
+    if world.entityExists(self.deedId or -1) then
         return true
     end
     return false
