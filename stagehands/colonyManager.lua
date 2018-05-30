@@ -69,9 +69,13 @@ function update(dt)
             tenantPortraits[i].head = world.entityPortrait(entityId, "head")
 
             if v.spawn == "npc" then
-                typeConfig[i] = root.npcConfig(v.type)
+                if not typeConfig[v.type] then
+                    typeConfig[v.type] = root.npcConfig(v.type)
+                end
             else
-                typeConfig[i] = root.monsterParameters(v.type)
+                if not typeConfig[v.type] then
+                    typeConfig[v.type] = root.monsterParameters(v.type)
+                end
             end
 
         end
@@ -79,7 +83,7 @@ function update(dt)
 
         promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",entity.id(), tenants, tenantPortraits, typeConfig), 
         function()
-
+            self.state = "main"
         end,
         function()
             sb.logError("npcinjector.onStagehandSuccess failed")
@@ -153,7 +157,7 @@ function addTenants(tenantArray)
         for i,v in ipairs(tenantArray) do
             local copiedV = copy(v)
             if copiedV then
-            --sb.logInfo("colonyManager %s", sb.printJson(copiedV, 1))
+            util.debugLog("colonyManager %s", sb.printJson(copiedV, 1))
                 world.callScriptedEntity(deedId, "addTenant", v)
             end
         end

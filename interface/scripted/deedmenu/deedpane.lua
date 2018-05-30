@@ -69,7 +69,7 @@ end
 function Tenant.fromConfig(jsonIndex)
     
     local self = config.getParameter("tenants."..tostring(jsonIndex), {})
-   
+    
     if isEmpty(self) then
         return nil
     end
@@ -85,7 +85,11 @@ function Tenant:init(args)
     for k,v in pairs(args) do
         self[k] = v
     end
-    self.config = root.npcConfig(self.type)
+    if self.dataSource ~= "config" then
+        self.config = root.npcConfig(self.type)
+    else 
+        self.config = "configs."..self.type.."."
+    end
 end
 
 function Tenant:getPortrait(type)
@@ -95,8 +99,15 @@ function Tenant:getPortrait(type)
     end
 end
 
+function Tenant:getConfig(jsonPath, default)
+    if type(self.config) == "string" then
+        return config.getParameter(self.config..jsonPath, default)
+    end
+    return sb.jsonQuery(self.config, jsonPath) or default
+end
+
 function Tenant:instanceValue(jsonPath, default)
-    return self[jsonPath] or sb.jsonQuery(self.overrides, jsonPath) or sb.jsonQuery(self.config, jsonPath) or default
+    return self[jsonPath] or sb.jsonQuery(self.overrides, jsonPath) or self:getConfig(jsonPath, default)
 end
 
 
@@ -252,7 +263,7 @@ function init()
     self.widgetFunc = function(...)
         local args = {...}
         local name = args[1]
-        if type(name) ~= "table" and widget[name] then
+        if type(name) == "string" and widget[name] then
             table.remove(args[1], 1)
             return widget[name](table.unpack(args))
         end
@@ -261,7 +272,9 @@ function init()
     self.configParam = config.getParameter
 
     self.selectedOption = widget.getSelectedOption
-    
+    self.tenantFromNpcCard = tenantFromNpcCard
+    self.tenantFromCapturePod = tenantFromCapturePod
+
     self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
     self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
 
@@ -300,10 +313,11 @@ function init()
             if item.tenant then
                 
                 local portrait = item.tenant:getPortrait("full")
+                drawParam = config.getParameter("portraitCanvas.drawImage.stand")
+
+                self.portraitCanvas:drawImage(drawParam.image, vec2.add(center, drawParam.position), drawParam.scale, drawParam.color, drawParam.centered)
 
                 drawParam = config.getParameter("portraitCanvas.drawImage."..item.tenant:instanceValue("spawn"))
-
-                self.portraitCanvas:drawImage(drawParam.standPath, center, drawParam.scale, drawParam.centered)
 
                 for i,drawable in ipairs(portrait) do
                     self.portraitCanvas:drawImage(drawable.image, vec2.add(center, drawable.position), drawParam.scale, drawable.color, drawParam.centered)
@@ -347,19 +361,22 @@ function uninit()
 end
 
 function onImportItemSlotInteraction(id, data)
-    local fullPath = "detailArea."..id
-    local item = player.swapSlotItem()
-    
-    if item and item.parameters and item.parameters.npcArgs then
-        if data == "npc" then
-            widget.setItemSlotItem(fullPath, player.swapSlotItem())
-            local tenant = tenantFromNpcCard(fullPath)
-            util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
-            world.sendEntityMessage(config.getParameter("stagehandId", -1), "addTenants", {tenant})
-        end
-        pane.dismiss()
-    end
 
+    local fullPath = "detailArea."..id
+    local item = player.swapSlotItem() or {}
+    local stagehandId = config.getParameter("stagehandId", -1)
+    local tenant
+    if hasPath(item, data.verifyPath) then
+
+        widget.setItemSlotItem(fullPath, item)
+        tenant = self[data.extractDataFunc](fullPath)
+
+        util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
+
+        world.sendEntityMessage(stagehandId, "addTenants", {tenant})
+        pane.dismiss()
+        return
+    end
 end
 
 function tenantFromNpcCard(item)
@@ -377,6 +394,18 @@ function tenantFromNpcCard(item)
         type = npcArgs.npcType,
         seed = npcArgs.npcSeed,
         overrides = copy(npcArgs.npcParam)
+    }
+end
+
+function tenantFromCapturePod(item)
+    if type(item) == "string" then
+        item = widget.itemSlotItem(item)
+    end
+    local pet = item.paramets.pets[1]
+    return {
+        spawn = "monster",
+        type = pet.config.type,
+        overrides = copy(pet.config.parameters)
     }
 end
 
@@ -459,7 +488,7 @@ function hasPath(data, keyList, index, total)
         index = 1
         total = math.max(#keyList, 1)
     end
-    if index >= total then
+    if index > total then
       return true
     else
       local firstKey = keyList[index]
