@@ -29,13 +29,19 @@ comp.resolve = function(v)
     return v
 end
 
-comp.eq = function(v1, v2) return comp.resolve(v1) == comp.resolve(v2) end
-comp.ne = function(v1, v2) return comp.resolve(v1) ~= comp.resolve(v2) end
+comp.eq = function(v1, v2) return compare(comp.resolve(v1), comp.resolve(v2)) end
+comp.ne = function(v1, v2) return not compare(comp.resolve(v1, comp.resolve(v2))) end
 comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
-comp.set = function(_, v2) return comp.resolve(v2) end
+comp.set = function(v1, v2) 
+    v1, v2 = comp.resolve(v1), comp.resolve(v2)
+    if type(v1) ~= "nil" then
+        return v1
+    end
+    return v2
+end
 
 comp.contains = function(v1, v2) 
     v1 = comp.resolve(v1)
@@ -45,35 +51,12 @@ comp.contains = function(v1, v2)
     end
 end
 
+comp.compare = function(v1, v2) end
 
 comp.drawText = function(canvas, text, args) args = comp.resolve(args); return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) end 
 
 function comp.result(fullPath, state, key) 
 
-    
-    local comparison = config.getParameter(string.format("%s.%s.%s", fullPath, state, key), config.getParameter(fullPath.."."..state))
-    
-    if type(comparison) == "string" then 
-        comparison = config.getParameter(string.format("%s.%s", comparison, key)) 
-    end
-   
-    
-    if type(comparison) ~= "table" then
-        return false
-    end
-    local output = false
-    local compareType = "compare"
-    local successes = util.filter(comparison, function(args)
-        compareType = args[1]
-        return comp[args[3]](args[2], args[4])
-    end)
-
-    if #successes == #comparison then
-        output = true
-    elseif #successes > 0 and compareType == "anyof" then
-        output = true
-    end
-    return output
 end
 
 function Tenant.new(...)
@@ -144,6 +127,7 @@ function listManager:init(tenants)
     local itemId = nil
     widget.clearListItems(self.listPath)
     for i = 1, math.min(#tenants+1, 5) do
+        sb.logInfo("listPath: %s", self.listPath)
         
         itemId = widget.addListItem(self.listPath)
         
@@ -165,6 +149,7 @@ function listManager:init(tenants)
         end
         self.items[itemId] = items
         widget.setData(items.toggleButton, {itemId = items.itemId})
+        widget.setData(items.portraitSlot, {itemId = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
         
        -- sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
         table.insert(self.itemIdByIndex, itemId)
@@ -177,27 +162,26 @@ function listManager:init(tenants)
     local itemPortraitPosition = {15, 5}
     local itemSize = {100, 20}
     local itemTextPosition = {30, 9} 
-
+    local textParams = {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}
 
     util.each(self.itemIdByIndex, 
     function(i, k)
         local v = self.items[k]
         local iconItem = config.getParameter("npcItem")
         v.canvas:clear()
-
         if v.isCreateNewItem then
-            v.canvas:drawText("Add Tenant", {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+            v.canvas:drawText("Add Tenant",textParams , 8)
             widget.setItemSlotItem(v.portraitSlot, iconItem)
             return
         end
-
-        v.canvas:drawText(v.tenant.overrides.identity.name, {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}, 8)
+        v.canvas:drawText(v.tenant.overrides.identity.name, textParams, 8)
         iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
         widget.setItemSlotItem(v.portraitSlot, iconItem)
     end)
 end
 
 function listManager:setSelectedItem(id)
+    if not id then id = -1 end
     self.selectedItemId = id
 end
 
@@ -233,9 +217,7 @@ end
 function init()
     self.timers = TimerManager:new()
     self.HandItemName = "npcinjector"
-    self.debug = true
-    --pane.setTitle("Colony Deedifyer MK10", "Its bigger than bread!!")
-    --tenant = Tenant.fromConfig(math.max(i-1, 0))
+    self.debug = false
 
     self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
         delay = 2,
@@ -269,6 +251,14 @@ function init()
             return widget[name](table.unpack(args))
         end
     end
+
+    self.configParam = config.getParameter
+
+    self.selectedOption = widget.getSelectedOption
+    
+    self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
+    self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
+
     
     self.getState = function()
         return self.state
@@ -280,14 +270,13 @@ function init()
     end
 
     self.onStateChange = function(state)
-        updateWidgets(state)
+             
+        updateWidgets()
+
     end
 
     self.hasSelectedListItem = function()
-        if listManager.selectedItemId then
-            return true
-        end
-        return false
+        return listManager.selectedItemId and true or false
     end
 
     self.selectedInstanceValue = function(jsonPath, default)
@@ -297,17 +286,6 @@ function init()
         end
         return default
     end
-
-    self.configParam = function(configPath, default)
-        return config.getParameter(configPath, default)
-    end
-
-    self.selectedOption = function(widgetPath)
-        return widget.getSelectedOption(widgetPath)
-    end
-    
-    self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
-    self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
 
     self.drawPortrait = function()
         self.portraitCanvas:clear()
@@ -323,8 +301,6 @@ function init()
                 end
                 return true
             end
-            --drawParam = config.getParameter("portraitCanvas.drawImage.newTenant")
-            --self.portraitCanvas:drawImage(drawParam.image, center, drawParam.scale, drawParam.color, drawParam.centered)
         end
     end
 
@@ -335,13 +311,7 @@ function init()
             return
         end
         local actions = config.getParameter("detailCanvas.actions."..self.getState())
-        --[[
-        if item.isCreateNewItem and not item.tenant then
-            actions = config.getParameter("detailCanvas.actions.newTenant")
-        else
-            actions = config.getParameter("detailCanvas.actions.modify"..item.tenant:instanceValue("spawn"))
-        end
-        --]]
+
         util.each(actions, function(i,v) 
             return comp[v[1]](self.detailCanvas, v[2], v[3])
         end)
@@ -413,20 +383,20 @@ end
 function onTenantListItemPressed(id, data)
     id = data.itemId
     local item = listManager.items[id]
-    local checked = widget.getChecked(item.toggleButton)
-    if checked == true and item.checked ~= true then
-        util.each(listManager.items, function(iId, v)
-            if iId ~= id then
-                v.checked = false
-            end
-        end)
-        item.checked = checked
-        util.each(listManager.items, function(iId, v)
-            widget.setChecked(v.toggleButton, v.checked)
-            widget.setButtonEnabled(v.toggleButton, not v.checked)
-        end)
-        listManager:setSelectedItem(id)
+    if data.clickSound then
+        widget.playSound(data.clickSound)
     end
+    util.each(listManager.items, function(iId, v)
+        v.checked = false
+    end)
+    item.checked = true
+    
+    util.each(listManager.items, function(iId, v)
+        widget.setChecked(v.toggleButton, v.checked)
+        widget.setButtonEnabled(v.toggleButton, not v.checked)
+    end)
+
+    listManager:setSelectedItem(id)
     if item.isCreateNewItem then
         self.setState("selectNew")
     else
@@ -436,8 +406,8 @@ end
 
 
 function updateWidgets(state)
-
     state = state or self.getState()
+    --[[]
     local widgetsToCheck = config.getParameter("widgetsToCheck")
 
     local checks = {}
@@ -450,6 +420,28 @@ function updateWidgets(state)
         local compareResult = comp.result(key, state, v)
         widget[v](tableKeys.fullPath, compareResult)
        end
+    end)
+
+    --]]
+
+    util.each(self.configParam("widgetsToCheck"),  function(widgetName, dataPath)
+                    
+        local queue = applyDefaults(self.configParam(widgetName.."."..state, {}), self.configParam(widgetName..".default", {}))
+        util.debugJson(queue, "onStageChangeQueue:  %s", 1)
+        for k,v in pairs(queue) do
+            local args = comp[v[1]](v[2], v[3])
+            if widget[k] then
+                --util.debugJson(v, "v:  %s", 1)
+                if type(args) == "table" then
+                    util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
+                    widget[k](dataPath, table.unpack(args))
+                else
+                    util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
+                    --return false
+                    widget[k](dataPath, args)
+                end
+            end
+        end
     end)
     self.drawDetails()
     self.drawPortrait()
@@ -488,3 +480,9 @@ function hasPath(data, keyList, index, total)
       end
     end
   end
+
+if not util then util = {} end
+
+function util.debugJson(luaValue, format, spacing)
+    return self.debug and sb.logInfo(format or "%s", sb.printJson(luaValue, spacing and 1 or 0))
+end
