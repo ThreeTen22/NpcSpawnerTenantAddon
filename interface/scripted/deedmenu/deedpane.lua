@@ -214,6 +214,12 @@ end
     1.0              y
 ]]
 
+function debugFunction(func, ...)
+    util.setDebug(true)
+    func(...)
+    util.setDebug(false)
+end
+
 function init()
     self.timers = TimerManager:new()
     self.HandItemName = "npcinjector"
@@ -270,9 +276,7 @@ function init()
     end
 
     self.onStateChange = function(state)
-             
-        updateWidgets()
-
+        debugFunction(updateWidgets)
     end
 
     self.hasSelectedListItem = function()
@@ -294,8 +298,13 @@ function init()
         local drawParam
         if item then
             if item.tenant then
+                
                 local portrait = item.tenant:getPortrait("full")
+
                 drawParam = config.getParameter("portraitCanvas.drawImage."..item.tenant:instanceValue("spawn"))
+
+                self.portraitCanvas:drawImage(drawParam.standPath, center, drawParam.scale, drawParam.centered)
+
                 for i,drawable in ipairs(portrait) do
                     self.portraitCanvas:drawImage(drawable.image, vec2.add(center, drawable.position), drawParam.scale, drawable.color, drawParam.centered)
                 end
@@ -407,22 +416,6 @@ end
 
 function updateWidgets(state)
     state = state or self.getState()
-    --[[]
-    local widgetsToCheck = config.getParameter("widgetsToCheck")
-
-    local checks = {}
-    util.each(widgetsToCheck, function(key,tableKeys)
-        widgetsToCheck[key].fullPath = config.getParameter(key..".fullPath")
-    end)
-
-    util.each(widgetsToCheck, function(key, tableKeys)
-       for i,v in ipairs(tableKeys) do
-        local compareResult = comp.result(key, state, v)
-        widget[v](tableKeys.fullPath, compareResult)
-       end
-    end)
-
-    --]]
 
     util.each(self.configParam("widgetsToCheck"),  function(widgetName, dataPath)
                     
@@ -448,14 +441,11 @@ function updateWidgets(state)
 end
 
 function paneAliveReminder()
-    --local stagehandId = config.getParameter("stagehandId")
-    --local deedId = config.getParameter("deedId")
-    --world.sendEntityMessage(player.id(), "npcinjector.paneAlive", stagehandId, deedId)
+    
 end
 
 function delayStagehandDeath()
-    --local stagehandId = config.getParameter("stagehandId")
-    --promises:add(world.sendEntityMessage(stagehandId, "delayDeath"), nil, function() pane.dismiss() end)
+ 
 end
 
 function checkIfAlive()
