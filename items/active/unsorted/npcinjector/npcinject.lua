@@ -56,8 +56,7 @@ function NpcInject:init()
     util.debugLog("npcinjector.onPaneDismissed")
     storage.spawner = nil
     storage.stagehandId = nil
-
-    self.cooldownTimer = self.cooldownTime
+    self:reset()
   end)
 
   animator.setGlobalTag("absorbed", string.format("%s", 0))
@@ -78,8 +77,8 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     elseif world.entityExists(storage.stagehandId or -1) then
       self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
     else
-      animator.playSound("error")
-      self.cooldownTimer = self.cooldownTime
+      --animator.playSound("error")
+      self.cooldownTimer = 0
       storage.spawner = nil
       storage.stagehandId = nil
     end
@@ -93,17 +92,6 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     storage.stagehandId = nil
     
   end
-
-  if storage.spawner and storage.stagehandId 
-  and not self.weapon.currentAbility
-  and world.entityExists(storage.spawner.deedId) 
-  and world.entityExists(storage.stagehandId) then
-
-    animator.setGlobalTag("absorbed", string.format("%s", 3))
-    self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
-    self.cooldownTimer = self.cooldownTime
-  end
-
   --[[
   local mag = world.magnitude(mcontroller.position(), activeItem.ownerAimPosition())
   if self.fireMode == "alt"
@@ -225,7 +213,8 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
 
     coroutine.yield()
   end
-
+  storage.stagehandId = nil
+  storage.spawner = nil
   animator.stopAllSounds("loop")
   animator.playSound("stop")
 

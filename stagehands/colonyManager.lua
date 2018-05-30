@@ -134,12 +134,39 @@ function isPlayerAlive()
     return false
 end
 
-function removeTenant(tenantUuid, spawn)
-    local entityId = world.loadUniqueEntity(tenantUuid)
-    if entityId ~= 0 then
-        world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
-        world.callScriptedEntity(entityId, "tenant.evictTenant")
+function removeTenant(tenantUuid, spawn, shouldDie)
+
+    local tenants =  getTenants()
+    local tenantToRemove, index = util.find(tenants, function(t)
+        return t.uniqueId == tenantUuid
+    end)
+    
+    local tenantsToRemove = {table.remove(tenants, index).uniqueId}
+    local monstersToReplace = {}
+    if spawn == "npc" and  index == 1 and #tenants > 0 then
+        while not isEmpty(tenants) and tenants[1].spawn ~= "npc" do
+            table.insert(monstersToReplace, table.remove(tenants, 1))
+        end
+        if #tenants > 0 then 
+            for _,v in ipairs(monstersToReplace) do
+                table.insert(tenantsToRemove, v.uniqueId)
+            end
+        else
+            monstersToReplace = {}
+        end
     end
+    for _,v in ipairs(tenantsToRemove) do
+        local entityId = world.loadUniqueEntity(v)
+        if entityId ~= 0 then
+            
+            world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
+            world.callScriptedEntity(entityId, "tenant.evictTenant")
+        end
+    end
+    for i,v in ipairs(monstersToReplace) do
+        v.uniqueId = nil
+    end
+    return addTenants(monstersToReplace, shouldDie)
 end
 
 function getTenants()
@@ -151,22 +178,18 @@ function getTenants()
     return {}
 end
 
-function addTenants(tenantArray)
+function addTenants(tenantArray, shouldDie)
+    tenantArray = tenantArray or {}
     if self.state == "main" and isDeedAlive() then
         local deedId = self.deedId
         for i,v in ipairs(tenantArray) do
-            local copiedV = copy(v)
-            if copiedV then
-            util.debugLog("colonyManager %s", sb.printJson(copiedV, 1))
+     
                 world.callScriptedEntity(deedId, "addTenant", v)
-            end
         end
     end
-end
-
-function replaceTenants(tenant)
-   -- local uniqueId = tenant.uniqueId
-
+    if shouldDie then
+        stagehand.die()
+    end
 end
 
 function copy(v)

@@ -185,8 +185,13 @@ function listManager:init(tenants)
             widget.setItemSlotItem(v.portraitSlot, iconItem)
             return
         end
-        v.canvas:drawText(v.tenant.overrides.identity.name, textParams, 8)
-        iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
+        if v.tenant.spawn == "npc" then
+            v.canvas:drawText(v.tenant.overrides.identity.name, textParams, 8)
+            iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
+        else
+            v.canvas:drawText(v.tenant.type, textParams, 8)
+            iconItem.parameters.inventoryIcon = v.tenant:getPortrait("full")
+        end
         widget.setItemSlotItem(v.portraitSlot, iconItem)
     end)
 end
@@ -353,7 +358,7 @@ end
 
 function dismissed()
     world.sendEntityMessage(pane.sourceEntity() or -1, "colonyManager.die")
-    world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
+    --world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 
 function uninit()
@@ -373,8 +378,8 @@ function onImportItemSlotInteraction(id, data)
 
         util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
 
-        world.sendEntityMessage(stagehandId, "addTenants", {tenant})
-        pane.dismiss()
+        world.sendEntityMessage(stagehandId, "addTenants", {tenant}, true)
+        --pane.dismiss()
         return
     end
 end
@@ -388,6 +393,9 @@ function tenantFromNpcCard(item)
         item.parameters.npcArgs.npcParam.scriptConfig.personality.storedOverrides = nil
     end
     local npcArgs = item.parameters.npcArgs
+    if hasPath(npcArgs, {"npcParam","scriptConfig", "uniqueId"}) then
+        npcArgs.npcParam.scriptConfig.uniqueId = nil
+    end
     return {
         spawn = "npc",
         species = npcArgs.npcSpecies or npcArgs.npcParam.identity.species,
@@ -401,7 +409,7 @@ function tenantFromCapturePod(item)
     if type(item) == "string" then
         item = widget.itemSlotItem(item)
     end
-    local pet = item.paramets.pets[1]
+    local pet = item.parameters.pets[1]
     return {
         spawn = "monster",
         type = pet.config.type,
@@ -413,8 +421,7 @@ function RemoveTenant(id, data)
     local npcUuid = self.selectedInstanceValue("tenant.uniqueId")
     local spawn = self.selectedInstanceValue("tenant.spawn")
 
-    world.sendEntityMessage(config.getParameter("stagehandId", -1), "removeTenant", npcUuid, spawn)
-    pane.dismiss()
+    world.sendEntityMessage(config.getParameter("stagehandId", -1), "removeTenant", npcUuid, spawn, true)
 end
 
 
