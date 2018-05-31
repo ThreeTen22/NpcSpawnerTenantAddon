@@ -65,3 +65,14 @@ function Tenant:setInstanceValue(jsonPath, value)
         jsonSetPath(self.overrides, jsonPath, value)
     end
 end
+
+function Tenant:toJson()
+    return {
+        spawn = self.spawn,
+        type = self.type,
+        species = self.species,
+        seed = self.seed,
+        level = self.level,
+        overrides = copy(self.overrides)
+    }
+end

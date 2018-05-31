@@ -62,6 +62,7 @@ function update(dt)
             
             tenantPortraits[i].full = world.entityPortrait(entityId, "full")
             tenantPortraits[i].head = world.entityPortrait(entityId, "head")
+            tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
 
             if v.spawn == "npc" then
                 if not typeConfig[v.type] then
@@ -74,7 +75,7 @@ function update(dt)
             end
 
         end
-        --sb.logInfo(sb.printJson(tenants, 1))
+        sb.logInfo(sb.printJson(tenants, 1))
 
         promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",entity.id(), tenants, tenantPortraits, typeConfig), 
         function()
@@ -136,10 +137,10 @@ function isPlayerAlive()
     return false
 end
 
---WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables...I thought the table would be copied similar to how configs work...however knowing this my guess is that now seems that config.getParameter is pretty much a copy )
+--WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables...)
 
 function removeTenant(tenantUuid, spawn, shouldDie)
-    util.setDebug(true)
+
     local tenants =  getTenants()
 
     table.sort(tenants, function(i,j) 

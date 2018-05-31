@@ -10,9 +10,8 @@ function NpcInject:init()
 
   debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   self.debug = false
-  util.setDebug(true)
   util.debugLog("Ininit")
-  
+  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
   self.tenants = nil

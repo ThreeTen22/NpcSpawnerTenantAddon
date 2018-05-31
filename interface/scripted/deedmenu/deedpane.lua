@@ -189,6 +189,7 @@ function uninit()
 
 end
 
+
 function SetDeedConfig(id, data)
     id = config.getParameter(id..".fullPath")
     local checked = widget.getChecked(id)
@@ -241,6 +242,33 @@ function tenantFromNpcCard(item)
         seed = npcArgs.npcSeed,
         overrides = copy(npcArgs.npcParam)
     }
+end
+
+
+function ExportNpcCard(id, data)
+    local item = config.getParameter("templateCard")
+    local tenant = self.getSelectedItem().tenant
+    local args = tenant:toJson()
+
+
+    item.parameters.shortdescription = args.overrides.identity.name
+    item.parameters.inventoryIcon = tenant:getPortrait("bust")
+    item.parameters.description = ""
+    item.parameters.tooltipFields.collarNameLabel = "Created By:  "..world.entityName(player.id())
+    item.parameters.tooltipFields.objectImage = tenant:getPortrait("full")
+    item.parameters.tooltipFields.subtitle = self.currentType
+    
+    item.parameters.npcArgs = {
+        npcSpecies = args.species,
+        npcSeed = args.seed,
+        npcType = args.type,
+        npcLevel = args.level,
+        npcParam = args.overrides
+    }
+    if player.swapSlotItem() then 
+        player.giveItem(player.swapSlotItem()) 
+    end
+    player.setSwapSlotItem(item)
 end
 
 function tenantFromCapturePod(item)
