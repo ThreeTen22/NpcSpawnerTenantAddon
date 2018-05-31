@@ -1,3 +1,5 @@
+require "/scripts/util.lua"
+
 Tenant = {}
 Tenant.__index = Tenant
 
