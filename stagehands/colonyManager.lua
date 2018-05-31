@@ -4,7 +4,7 @@ function init()
     --if not storage then storage = {} end
     self.debug = false
     self.deedUuid = config.getParameter("deedUuid")
-    self.deedId = world.loadUniqueEntity(self.deedUuid)
+    self.deedId = config.getParameter("deedId")
     self.playerUuid = config.getParameter("playerUuid")
     self.playerId = config.getParameter("playerId")
    
@@ -44,12 +44,7 @@ function update(dt)
             world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
             return stagehand.die()
         end
-
-        if world.callScriptedEntity(self.deedId, "isOccupied") then
-            world.callScriptedEntity(self.deedId, "respawnTenants")
-        else
-            world.callScriptedEntity(self.deedId, "scanVacantArea")
-        end
+        
         local tenants = getTenants()
 
         if #tenants == 0 then
@@ -99,7 +94,7 @@ function mainUpdate(dt)
 end
 
 function uninit()
-    --stagehand.die()
+    stagehand.die()
 end
 
 function updateSelf()
@@ -134,39 +129,45 @@ function isPlayerAlive()
     return false
 end
 
-function removeTenant(tenantUuid, spawn, shouldDie)
+--WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables...I thought the table would be copied similar to how configs work...however knowing this my guess is that now seems that config.getParameter is pretty much a copy )
 
+function removeTenant(tenantUuid, spawn, shouldDie)
+    util.setDebug(true)
     local tenants =  getTenants()
-    local tenantToRemove, index = util.find(tenants, function(t)
-        return t.uniqueId == tenantUuid
+
+    table.sort(tenants, function(i,j) 
+        return i.spawn > j.spawn
     end)
-    
-    local tenantsToRemove = {table.remove(tenants, index).uniqueId}
-    local monstersToReplace = {}
-    if spawn == "npc" and  index == 1 and #tenants > 0 then
-        while not isEmpty(tenants) and tenants[1].spawn ~= "npc" do
-            table.insert(monstersToReplace, table.remove(tenants, 1))
-        end
-        if #tenants > 0 then 
-            for _,v in ipairs(monstersToReplace) do
-                table.insert(tenantsToRemove, v.uniqueId)
-            end
-        else
-            monstersToReplace = {}
-        end
+
+    local entityId = world.loadUniqueEntity(tenantUuid)
+    --util.debugLog(sb.printJson(v or "nil"))
+    if entityId ~= 0 then
+        --world.callScriptedEntity(self.deedId, "detachTenant", v)
+        world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
+        world.callScriptedEntity(entityId, "tenant.evictTenant")
+        
     end
+
+    --[[
+    util.debugLog(sb.printJson(getTenants() or "nil"))
     for _,v in ipairs(tenantsToRemove) do
         local entityId = world.loadUniqueEntity(v)
+        util.debugLog(sb.printJson(v or "nil"))
         if entityId ~= 0 then
-            
+            --world.callScriptedEntity(self.deedId, "detachTenant", v)
             world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
             world.callScriptedEntity(entityId, "tenant.evictTenant")
+            
         end
     end
     for i,v in ipairs(monstersToReplace) do
         v.uniqueId = nil
     end
-    return addTenants(monstersToReplace, shouldDie)
+    util.setDebug(false)
+    ]]
+    if shouldDie then
+        stagehand.die()
+    end
 end
 
 function getTenants()
@@ -183,7 +184,6 @@ function addTenants(tenantArray, shouldDie)
     if self.state == "main" and isDeedAlive() then
         local deedId = self.deedId
         for i,v in ipairs(tenantArray) do
-     
                 world.callScriptedEntity(deedId, "addTenant", v)
         end
     end

@@ -7,7 +7,9 @@ NpcInject = WeaponAbility:new()
 
 function NpcInject:init()
   --if not storage then storage = {} end
-  self.debug = true
+
+  debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  self.debug = false
   util.setDebug(true)
   util.debugLog("Ininit")
   
@@ -40,8 +42,9 @@ function NpcInject:init()
     deedpane.tenants = tenants
     deedpane.tenantPortraits = tenantPortraits
     deedpane.configs = typeConfig
-    player.interact("ScriptPane", deedpane, id)
 
+    player.interact("ScriptPane", deedpane, id)
+   
     return true
   end)
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
@@ -117,7 +120,7 @@ function NpcInject:scan()
     objects = util.filter(objects, 
       function(objectId)
         local position = world.entityPosition(objectId)
-        if world.lineTileCollision(self:firePosition(), position) then
+        if objectId == 0 or world.lineTileCollision(self:firePosition(), position) then
           return false
         end
         local mag = world.magnitude(mcontroller.position(), position)
@@ -136,6 +139,7 @@ function NpcInject:scan()
       local pUuid = player.uniqueId()
       local position = world.entityPosition(deedId)
       local returnValue = false
+      
       if not storage.spawner then
         
         world.sendEntityMessage((storage.stagehandId or -1), "colonyManager.die")
@@ -284,4 +288,11 @@ function NpcInject:reset()
   animator.stopAllSounds("loop")
   self.weapon:setDamage()
   activeItem.setScriptedAnimationParameter("chains", {})
+end
+
+
+function debugFunction(func, ...)
+  util.setDebug(true)
+  func(...)
+  util.setDebug(false)
 end

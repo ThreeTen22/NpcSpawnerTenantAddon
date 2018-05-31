@@ -53,7 +53,10 @@ end
 
 comp.compare = function(v1, v2) end
 
-comp.drawText = function(canvas, text, args) args = comp.resolve(args); return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) end 
+comp.drawText = function(canvas, text, args) 
+    args = comp.resolve(args)
+    return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) 
+end 
 
 function comp.result(fullPath, state, key) 
 
@@ -132,6 +135,7 @@ function listManager:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = nil
+    self.listId = "tenantList"
     self.listPath = "listLayout.tenantList"
 
     widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
@@ -161,20 +165,14 @@ function listManager:init(tenants)
         self.items[itemId] = items
         widget.setData(items.toggleButton, {itemId = items.itemId})
         widget.setData(items.portraitSlot, {itemId = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
-        
-       -- sb.logInfo("listManagerInit isCreateNewItem- %s", self.items[itemId].isCreateNewItem )
-        table.insert(self.itemIdByIndex, itemId)
+
+        self.itemIdByIndex[i] = itemId
 
     end
-
-    --local firstItem = self.items[self.itemIdByIndex[1]]
-    
-
-    local itemPortraitPosition = {15, 5}
-    local itemSize = {100, 20}
+ 
     local itemTextPosition = {30, 9} 
     local textParams = {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}
-
+    local canvasParams = config.getParameter("layouts.listItemTitle")
     util.each(self.itemIdByIndex, 
     function(i, k)
         local v = self.items[k]
@@ -186,10 +184,10 @@ function listManager:init(tenants)
             return
         end
         if v.tenant.spawn == "npc" then
-            v.canvas:drawText(v.tenant.overrides.identity.name, textParams, 8)
+            v.canvas:drawText(v.tenant.overrides.identity.name, canvasParams.textPositioning, canvasParams.fontSize)
             iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
         else
-            v.canvas:drawText(v.tenant.type, textParams, 8)
+            v.canvas:drawText(v.tenant.type, canvasParams.textPositioning, canvasParams.fontSize)
             iconItem.parameters.inventoryIcon = v.tenant:getPortrait("full")
         end
         widget.setItemSlotItem(v.portraitSlot, iconItem)
@@ -209,12 +207,12 @@ function listManager:itemInstanceValue(id, jsonPath, default)
     
     local item = self.items[id]
 
-    sb.logInfo("listmanger: iteminstancevalue %s %s %s", id, jsonPath, default)
+    
     if not item then return default end
     if type(item[jsonPath]) ~= "nil" then
         return item[jsonPath]
     end
-    --sb.logInfo("listmanger: jsonpath - forced item %s",item[jsonPath])
+    
     local path = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
     if path[1] == "tenant" then
         table.remove(path, 1)
@@ -294,7 +292,7 @@ function init()
     end
 
     self.onStateChange = function(state)
-        debugFunction(updateWidgets)
+        return updateWidgets(state)
     end
 
     self.hasSelectedListItem = function()
@@ -334,11 +332,7 @@ function init()
 
     self.drawDetails = function()
         self.detailCanvas:clear()
-        local item = self.getSelectedItem()
-        if not item then
-            return
-        end
-        local actions = config.getParameter("detailCanvas.actions."..self.getState())
+        local actions = config.getParameter("detailCanvas.actions."..self.getState(), {})
 
         util.each(actions, function(i,v) 
             return comp[v[1]](self.detailCanvas, v[2], v[3])
@@ -348,7 +342,14 @@ function init()
     self.clearPortrait = function()
         self.portraitCanvas:clear()
     end
+
+    self.listManagerInit = function()
+        return listManager:init(config.getParameter("tenants"))
+    end
+
     widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
+
+    self.setState("selectNone")
 end
 
 
@@ -427,22 +428,30 @@ end
 
 function onTenantListItemPressed(id, data)
     id = data.itemId
-    local item = listManager.items[id]
-    if data.clickSound then
+    if data.clickSound then 
         widget.playSound(data.clickSound)
     end
+    local item = listManager.items[id]
+    local checkstatus = widget.getChecked(item.toggleButton)
+    
+    
     util.each(listManager.items, function(iId, v)
         v.checked = false
     end)
-    item.checked = true
+    item.checked = checkstatus
     
     util.each(listManager.items, function(iId, v)
         widget.setChecked(v.toggleButton, v.checked)
-        widget.setButtonEnabled(v.toggleButton, not v.checked)
     end)
 
-    listManager:setSelectedItem(id)
-    if item.isCreateNewItem then
+    local checkCount = util.filter(listManager.itemIdByIndex, function(itemId)
+        return listManager.items[itemId].checked == true
+    end)
+
+    listManager:setSelectedItem(checkCount[1])
+    if not listManager:getSelectedItem() then
+        self.setState("selectNone")
+    elseif item.isCreateNewItem then
         self.setState("selectNew")
     else
         self.setState("selectTenant")
