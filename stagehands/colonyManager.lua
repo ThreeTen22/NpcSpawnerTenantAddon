@@ -26,7 +26,7 @@ function init()
     message.setHandler("addTenants", simpleHandler(addTenants))
     message.setHandler("replaceTenants", simpleHandler(replaceTenants))
     message.setHandler("removeTenant", simpleHandler(removeTenant))
-
+    message.setHandler("setDeedConfig", simpleHandler(setDeedConfig))
     
 end
 
@@ -121,6 +121,13 @@ function isDeedAlive()
     end
     return false
 end
+--Need to set the deed config to a value so it will be changeable again...for some reason setting parameters on tables is having issues
+function setDeedConfig(configItem)
+    if world.entityExists(self.deedId or -1) then
+        world.callScriptedEntity(self.deedId, "object.setConfigParameter", "deed", configItem)
+        world.callScriptedEntity(self.deedId, "init")
+    end
+end
 
 function isPlayerAlive()
     if world.findUniqueEntity(self.playerUuid):result() then
@@ -148,23 +155,6 @@ function removeTenant(tenantUuid, spawn, shouldDie)
         
     end
 
-    --[[
-    util.debugLog(sb.printJson(getTenants() or "nil"))
-    for _,v in ipairs(tenantsToRemove) do
-        local entityId = world.loadUniqueEntity(v)
-        util.debugLog(sb.printJson(v or "nil"))
-        if entityId ~= 0 then
-            --world.callScriptedEntity(self.deedId, "detachTenant", v)
-            world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
-            world.callScriptedEntity(entityId, "tenant.evictTenant")
-            
-        end
-    end
-    for i,v in ipairs(monstersToReplace) do
-        v.uniqueId = nil
-    end
-    util.setDebug(false)
-    ]]
     if shouldDie then
         stagehand.die()
     end

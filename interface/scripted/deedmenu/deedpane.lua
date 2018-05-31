@@ -175,11 +175,6 @@ function init()
     ))
 end
 
-
-function SetDeedConfig(id, data)
-
-end
-
 function update(dt)
     promises:update(dt)
     self.timers:update(dt)
@@ -194,11 +189,25 @@ function uninit()
 
 end
 
+function SetDeedConfig(id, data)
+    id = config.getParameter(id..".fullPath")
+    local checked = widget.getChecked(id)
+    local path = util.split(data, ".")
+    local changes = {
+        [path[1]] = world.getObjectParameter(pane.sourceEntity(), path[1])
+    }
+
+    jsonSetPath(changes, data, checked)
+    
+    world.sendEntityMessage(pane.sourceEntity(), "setDeedConfig", copy(changes[path[1]]))
+
+end
+
 function onImportItemSlotInteraction(id, data)
 
     local fullPath = "detailArea."..id
     local item = player.swapSlotItem() or {}
-    local stagehandId = config.getParameter("stagehandId", -1)
+    local stagehandId = pane.sourceEntity()
     local tenant
     if hasPath(item, data.verifyPath) then
 
@@ -250,7 +259,7 @@ function RemoveTenant(id, data)
     local npcUuid = self.selectedInstanceValue("tenant.uniqueId")
     local spawn = self.selectedInstanceValue("tenant.spawn")
 
-    world.sendEntityMessage(config.getParameter("stagehandId", -1), "removeTenant", npcUuid, spawn, true)
+    world.sendEntityMessage(pane.sourceEntity(), "removeTenant", npcUuid, spawn, true)
 end
 
 
@@ -285,11 +294,6 @@ function onTenantListItemPressed(id, data)
         self.setState("selectTenant")
     end
 end
-
-function SetDeedConfig(id, data)
-    id = config.getParameter(id.fullPath)
-end
-
 
 function updateWidgets(state)
     state = state or self.getState()
