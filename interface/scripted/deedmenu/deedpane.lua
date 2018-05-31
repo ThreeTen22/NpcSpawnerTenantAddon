@@ -67,12 +67,6 @@ function init()
     self.HandItemName = "npcinjector"
     self.debug = false
 
-    self.delayStagehandDeath = Timer:new("delayStagehandDeath", {
-        delay = 2,
-        completeCallback = delayStagehandDeath,
-        loop = true
-      })
-
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
         completeCallback = checkIfAlive,
@@ -80,11 +74,6 @@ function init()
     })
     self.timers:manage(self.paneAliveCooldown)
 
-    if not self.delayStagehandDeath:active() then
-      self.delayStagehandDeath:start()
-    end
-
-    self.timers:manage(self.delayStagehandDeath)
     listManager:init(config.getParameter("tenants"))
 
     self.getSelectedItem = function()
@@ -178,10 +167,21 @@ function init()
     widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
 
     self.setState("selectNone")
+
+    widget.setChecked("detailArea.requireFilledBackgroundButton",
+    world.getObjectParameter(
+        config.getParameter("deedId"), 
+        widget.getData("detailArea.requireFilledBackgroundButton")
+    ))
 end
 
 
+function SetDeedConfig(id, data)
+
+end
+
 function update(dt)
+    promises:update(dt)
     self.timers:update(dt)
 end
 
@@ -286,6 +286,10 @@ function onTenantListItemPressed(id, data)
     end
 end
 
+function SetDeedConfig(id, data)
+    id = config.getParameter(id.fullPath)
+end
+
 
 function updateWidgets(state)
     state = state or self.getState()
@@ -299,10 +303,10 @@ function updateWidgets(state)
             if widget[k] then
                 --util.debugJson(v, "v:  %s", 1)
                 if type(args) == "table" then
-                    util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
+                    --util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
                     widget[k](dataPath, table.unpack(args))
                 else
-                    util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
+                    --util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
                     --return false
                     widget[k](dataPath, args)
                 end
@@ -319,12 +323,6 @@ end
 
 function delayStagehandDeath()
  
-end
-
-function checkIfAlive()
-    if not world.entityExists(config.getParameter("stagehandId", -1)) then
-        pane.dismiss()
-    end
 end
 
 function hasPath(data, keyList, index, total)
