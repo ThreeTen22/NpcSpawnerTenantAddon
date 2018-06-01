@@ -41,6 +41,8 @@ function Tenant:getPortrait(type)
     if self.dataSource == "config" then
         local path = string.format("tenantPortraits.%s.%s", self.jsonIndex, type)
         return config.getParameter(path)
+    else
+        return root.npcPortrait(type, self.species, self.npcType, 1, self.overrides)
     end
 end
 
@@ -48,7 +50,7 @@ function Tenant:getConfig(jsonPath, default)
     if type(self.config) == "string" then
         return config.getParameter(self.config..jsonPath, default)
     end
-    return sb.jsonQuery(self.config, jsonPath) or default
+    return sb.jsonQuery(self.config, jsonPath, default)
 end
 
 function Tenant:instanceValue(jsonPath, default)
@@ -75,4 +77,14 @@ function Tenant:toJson()
         level = self.level,
         overrides = copy(self.overrides)
     }
+end
+
+function Tenant:toVariant(skipOverrides)
+    if spawn == "npc" then
+        if skipOverrides then
+            return root.npcVariant(self.species, self.type, 1)
+        else
+            return root.npcVariant(self.species, self.type, 1, 1, overrides)
+        end
+    end
 end

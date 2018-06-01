@@ -173,6 +173,8 @@ function init()
         config.getParameter("deedId"), 
         widget.getData("detailArea.requireFilledBackgroundButton")
     ))
+    self.tenantFromNpcCard = tenantFromNpcCard
+    self.tenantFromCapturePod = tenantFromCapturePod
 end
 
 function update(dt)
@@ -211,11 +213,10 @@ function onImportItemSlotInteraction(id, data)
     local stagehandId = pane.sourceEntity()
     local tenant
     if hasPath(item, data.verifyPath) then
-
+        
         widget.setItemSlotItem(fullPath, item)
-        tenant = self[data.extractDataFunc](fullPath)
-
-        util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
+        tenant = self[data.extractFunc](player.swapSlotItem())
+  util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
 
         world.sendEntityMessage(stagehandId, "addTenants", {tenant}, true)
         --pane.dismiss()
@@ -223,18 +224,33 @@ function onImportItemSlotInteraction(id, data)
     end
 end
 
+function tenantFromCapturePod(item)
+    if type(item) == "string" then
+        item = widget.itemSlotItem(item)
+    end
+    local pet = item.parameters.pets[1]
+    return {
+        spawn = "monster",
+        type = pet.config.type,
+        overrides = copy(pet.config.parameters)
+    }
+end
+
 function tenantFromNpcCard(item)
     if type(item) == "string" then
         item = widget.itemSlotItem(item)
     end
+
     --local npcArgs = item.parameters.npcArgs
+
     if hasPath(item.parameters.npcArgs, {"npcParam", "scriptConfig", "personality","storedOverrides"}) then
         item.parameters.npcArgs.npcParam.scriptConfig.personality.storedOverrides = nil
     end
     local npcArgs = item.parameters.npcArgs
     if hasPath(npcArgs, {"npcParam","scriptConfig", "uniqueId"}) then
-        npcArgs.npcParam.scriptConfig.uniqueId = nil
+        item.parameters.npcArgs.npcParam.scriptConfig.uniqueId = nil
     end
+
     return {
         spawn = "npc",
         species = npcArgs.npcSpecies or npcArgs.npcParam.identity.species,
@@ -269,18 +285,6 @@ function ExportNpcCard(id, data)
         player.giveItem(player.swapSlotItem()) 
     end
     player.setSwapSlotItem(item)
-end
-
-function tenantFromCapturePod(item)
-    if type(item) == "string" then
-        item = widget.itemSlotItem(item)
-    end
-    local pet = item.parameters.pets[1]
-    return {
-        spawn = "monster",
-        type = pet.config.type,
-        overrides = copy(pet.config.parameters)
-    }
 end
 
 function RemoveTenant(id, data)

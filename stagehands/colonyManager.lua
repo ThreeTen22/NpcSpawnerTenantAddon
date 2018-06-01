@@ -3,6 +3,7 @@ require "/scripts/messageutil.lua"
 function init()
     --if not storage then storage = {} end
     self.debug = false
+    logENV()
     self.deedUuid = config.getParameter("deedUuid")
     self.deedId = config.getParameter("deedId")
     self.playerUuid = config.getParameter("playerUuid")
@@ -12,7 +13,7 @@ function init()
 
 
     self.deedCheckup = Timer:new("deedCheckup", {
-        delay = 0.2,
+        delay = 0.08,
         completeCallback = updateSelf,
         loop = true
     })
@@ -102,7 +103,8 @@ function updateSelf()
     util.debugLog("updateSelf..init")
     local live = false
     local playerPos = world.entityPosition(self.playerId)
-
+    stagehand.setPosition(playerPos)
+    
     if isDeedAlive() and playerPos then
         if world.magnitude(playerPos, config.getParameter("deedPosition")) < 20 then
             live = true
@@ -195,3 +197,19 @@ function copy(v)
       return c
     end
 end
+
+function logENV()
+    local indx = 1
+    local tbl = {}
+    for i,v in pairs(_ENV) do
+      if type(v) == "function" then
+        indx, tbl[indx] = indx+1, sb.print("%s", i)
+        
+      elseif type(v) == "table" then
+        for j,k in pairs(v) do
+          indx, tbl[indx] = indx+1, sb.print("%s.%s (%s)", i, j, type(k))
+        end
+      end
+    end
+    sb.logInfo(sb.printJson(tbl, 1))
+  end
