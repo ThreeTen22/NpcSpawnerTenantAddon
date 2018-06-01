@@ -7,8 +7,59 @@
         "/stagehands/colonymanager.lua"
     ],
     "scriptDelta" : 5,
-
-    "deedUuid" : "",
-    "playerUuid": "",
-    "deedId": ""
+    "playerUuid": "", 
+    "playerId" : "",
+    "deedId": "",
+    "deedPosition": [],
+    "spawningErrors" : {
+        "type" : [
+            "^red;Critical Failure:^white;\nThe <spawn> cannot be added.  The ^orange;<type> type^white; is unknown to this universe",
+            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"
+        ],
+        "species" : [
+            "^red;Critical Failure:^white; The <spawn> cannot be added.  The ^orange;<species> species^white; is unknown to this universe",
+            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"           
+        ],
+        "unknown" : [
+            "^red;Critical Failure:^white; There was some unfathomable error..oh no!",
+            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"           
+        ]
+    },
+    "defaults" : {
+        "dialogue" : {
+            "tenant" : {
+                "arrivedHome" : {
+                "beacon" : "/dialog/arrivedhome.config:beacon",
+                "rent" : "/dialog/arrivedhome.config:rent"
+                },
+                "grumbles" : {
+                "final" : "/dialog/grumble.config:final",
+                "tagCriteria" : "/dialog/grumble.config:tagCriteria",
+                "otherDeed" : "/dialog/grumble.config:otherDeed",
+                "enclosedArea" : "/dialog/grumble.config:enclosedArea",
+                "severe" : "/dialog/grumble.config:severe"
+                }
+            },
+            "converse" : "/dialog/converse.config:converse",
+            "greeting" : "/dialog/converse.config:greeting",
+            "accuse" : "/dialog/thief.config:accuse"
+        },
+        "behavior" : {
+            "tenantModule" :       {
+                "title": "Tenant Baseline Behavior",
+                "type": "module",
+                "name": "Tenant Baseline Behavior",
+                "parameters": {}
+              },
+              "converse" : {
+                "title": "converse",
+                "type": "module",
+                "name": "converse",
+                "parameters": {}
+              }
+        },
+        "behaviors" : {
+            "hostileguard" : "/behaviors/npc/hostileguard.behavior"
+        }
+    }
 }

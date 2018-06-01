@@ -1,0 +1,11 @@
+{
+  "frameGrid" : {
+    "size" : [100, 20],
+    "dimensions" : [1, 3],
+    "names" : [
+      [ "unselected" ],
+      [ "hover" ],
+      [ "selected" ]
+    ]
+  }
+}

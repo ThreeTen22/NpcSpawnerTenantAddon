@@ -6,35 +6,62 @@ require "/scripts/util.lua"
 NpcInject = WeaponAbility:new()
 
 function NpcInject:init()
+  --if not storage then storage = {} end
+
+  debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  util.setDebug(false)
+  --util.debugLog("Ininit")
+  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
+  self.tenants = nil
+  self.tenantPortraits = nil
+  self.typeConfig = nil
   self.weapon.onLeaveAbility = function()
     self.weapon:setStance(self.stances.idle)
   end
 
-  storage.grabbedParam =  storage.grabbedParam  or jarray()
-  if storage.grabbedParam[1] then
-    local id = storage.grabbedParam[1].objectId or -1
-    if not (world.entityExists(id)
-    and world.entityName(id) == "colonydeed"
-    and world.magnitude(mcontroller.position(),world.entityPosition(id)) < 20) then
-      storage.grabbedParam = jarray()
-    end
-  end
-  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
-  message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants)
-    self.tenants = tenants
-    self.stagehandId = id
+  storage.stagehandId = storage.stagehandId
+
+  message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants, tenantPortraits, typeConfig)
+    --util.debugLog("npcinjector.onStagehandSuccess")
+
+    storage.stagehandId = id
+
+    local dUuid = world.entityUniqueId(storage.spawner.deedId)
+    local pUuid = player.uniqueId()
+
+    local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
+
+    deedpane.deedUuid = dUuid
+    deedpane.playerUuid = pUuid
+    deedpane.stagehandId = stagehandId or storage.stagehandId
+    deedpane.deedId = storage.spawner.deedId
+    deedpane.deedPosition = storage.spawner.position
+    deedpane.tenants = tenants
+    deedpane.tenantPortraits = tenantPortraits
+    deedpane.configs = typeConfig
+
+    player.interact("ScriptPane", deedpane, id)
+   
     return true
   end)
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
-    storage.grabbedParam = jarray()
+    --util.debugLog("npcinjector.onStagehandFailed")
+    storage.stagehandId = nil
+    storage.spawner = nil
+
+    self.cooldownTimer = self.cooldownTime
   end)
 
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
-    storage.grabbedParam = jarray()
-    animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
+    --util.debugLog("npcinjector.")
+    storage.spawner = nil
+    storage.stagehandId = nil
+    self:reset()
   end)
+
+  animator.setGlobalTag("absorbed", string.format("%s", 0))
 end
 
 
@@ -47,29 +74,27 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     and not self.weapon.currentAbility
     and self.cooldownTimer == 0 then
 
-    if #storage.grabbedParam < self.maxStorage then
+    if not storage.spawner then
       self:setState(self.scan)
+    elseif world.entityExists(storage.stagehandId or -1) then
+      self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
     else
-      animator.playSound("error")
-      self.cooldownTimer = self.cooldownTime
+      --animator.playSound("error")
+      --util.debugLog("inside firemode - else statement - storage.spawner cleared")
+      self.cooldownTimer = 0
+      storage.spawner = nil
+      storage.stagehandId = nil
     end
   end
   if self.fireMode == "alt" then
     --DEBUG:  DONT KEEP
-    storage.grabbedParam = jarray()
+    --util.debugLog("inside firemode - alt - storage.spawner cleared")
+    --self.weapon:setStance(self.stances.idle)
+    self.cooldownTimer = 0
+    storage.spawner = nil
+    storage.stagehandId = nil
+    
   end
-  --[[
-  local mag = world.magnitude(mcontroller.position(), activeItem.ownerAimPosition())
-  if self.fireMode == "alt"
-    and not self.weapon.currentAbility
-    and self.cooldownTimer == 0
-    and #storage.grabbedParam > 0
-    and mag > vec2.mag(self.weapon.muzzleOffset) and mag < self.maxRange
-    and not world.lineTileCollision(self:firePosition(), activeItem.ownerAimPosition()) then
-
-    self:setState(self.fire)
-  end
-  --]]
 end
 
 function NpcInject:scan()
@@ -81,35 +106,58 @@ function NpcInject:scan()
   while self.fireMode == "primary" do
     local objects = world.objectQuery(activeItem.ownerAimPosition(), 2, {order = "nearest" })
     objects = util.filter(objects, 
-    function(objectId)
-      local position = world.entityPosition(objectId)
-      if world.lineTileCollision(self:firePosition(), position) then
-        return false
-      end
-      local mag = world.magnitude(mcontroller.position(), position)
-      if mag > self.maxRange or mag < vec2.mag(self.weapon.muzzleOffset) then
-        return false
-      end
-      if world.getObjectParameter(objectId, "category") ~= "spawner" then
-        return false
-      end
-      return true
+      function(objectId)
+        local position = world.entityPosition(objectId)
+        if objectId == 0 or world.lineTileCollision(self:firePosition(), position) then
+          return false
+        end
+        local mag = world.magnitude(mcontroller.position(), position)
+        if mag > self.maxRange or mag < vec2.mag(self.weapon.muzzleOffset) then
+          return false
+        end
+        if world.getObjectParameter(objectId, "category") ~= "spawner" then
+          return false
+        end
+        if world.getObjectParameter(objectId, "npcArgs") ~= nil
+        then
+          return false
+        end
+        return true
     end)
     if #objects > 0 then
       local spawner = {}
-      local objectId = objects[1]
-      if jsize(storage.grabbedParam) < self.maxStorage and 
-      (self.weapon.currentState == nil or self.weapon.currentState == self.scan) then
-        local position = world.entityPosition(objectId)
-        spawner = world.getObjectParameter(objectId, "deed") or {}
+      local deedId = objects[1]
+      local dUuid = world.entityUniqueId(deedId)
+      local pUuid = player.uniqueId()
+      local position = world.entityPosition(deedId)
+      local returnValue = false
+      
+      if not storage.spawner then
+        
+        world.sendEntityMessage((storage.stagehandId or -1), "colonyManager.die")
+        storage.stagehandId = nil
+       
+        spawner = world.getObjectParameter(deedId, "deed") or {}
+        spawner.position = position
         spawner.attachPoint = {0,0}
-        spawner.objectId = objectId
-        table.insert(storage.grabbedParam, spawner)
-        self:setState(self.absorb, objectId, spawner)
-        return true
-      else
-        return false
+        spawner.deedId = deedId
+        storage.spawner = spawner
+        returnValue = true
       end
+      if not (storage.stagehandId and world.entityExists(storage.stagehandId)) then
+      storage.stagehandId = world.spawnStagehand(mcontroller.position(), "colonymanager", 
+        { deedId = deedId,
+          deedPosition = position,
+          deedUuid=dUuid, 
+          playerUuid=pUuid,
+          playerId=player.id()
+        })
+        returnValue = true
+      end
+      if returnValue == true then
+        self:setState(self.absorb, deedId, storage.stagehandId, storage.spawner)
+      end
+      return returnValue
     end
     coroutine.yield()
   end
@@ -118,37 +166,24 @@ function NpcInject:scan()
   animator.playSound("scanend")
 end
 
---[[
-for _,objectId in ipairs(objects) do
-      if not promises[objectId] then
-        promises[objectId] = true
-        local promise = world.sendEntityMessage(objectId, "pet.attemptRelocate", activeItem.ownerEntityId())
 
-        while not promise:finished() do
-          coroutine.yield()
-        end
-
-        break
-      end
-    end
-----]]
-
-function NpcInject:absorb(entityId, object)
+function NpcInject:absorb(deedId, stagehandId, spawner)
   animator.stopAllSounds("scanning")
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
-  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
+  animator.setGlobalTag("absorbed", string.format("%s", 3))
 
-  local objectPosition = {0, 0}
+  local spawnerPos = {0, 0}
 
+  --util.debugLog("ABSORB: BEGIN")
   local timer = 0
   while timer < self.beamReturnTime do
-    if world.entityExists(entityId) then
-      objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
+    if world.entityExists(deedId) then
+      spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
     end
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
-    local offset = self:beamPosition(objectPosition)
+    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
+    local offset = self:beamPosition(spawnerPos)
     self:drawBeam(vec2.add(self:firePosition(), vec2.mul(offset, timer / self.beamReturnTime)), false)
 
     timer = timer + script.updateDt()
@@ -159,107 +194,45 @@ function NpcInject:absorb(entityId, object)
   local scanTimer = 1
   animator.stopAllSounds("loop")
   
-  local dUuid = world.entityUniqueId(entityId)
-  local pUuid = player.uniqueId()
-  local stagehandId = world.spawnStagehand(objectPosition, "colonymanager", {deedId = entityId, deedUuid=dUuid, playerUuid=pUuid})
 
-  while not world.entityExists(self.stagehandId or -1) and #storage.grabbedParam > 0 do
+  --util.debugLog("ABSORB: BEFORE CHECKING storage.stagehandId")
+  while not world.entityExists(storage.stagehandId or -1) and storage.spawner do
+    --util.debugLog("ABSORB: WAIT FOR storage.stagehandId")
     coroutine.yield()
   end
-  if #storage.grabbedParam > 0 then
-    local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
-    deedpane.deedUuid = dUuid
-    deedpane.playerUuid = pUuid
-    deedpane.stagehandId = self.stagehandId
-    deedpane.deedId = entityId
-    deedpane.stagehandPosition = objectPosition
-    deedpane.tenants = self.tenants
-    player.interact("ScriptPane", deedpane)
-  end
-
-  while world.entityExists(entityId) and #storage.grabbedParam > 0 
-  and  world.magnitude(mcontroller.position(),objectPosition) < 20
+  --util.debugLog("ABSORB: storage.stagehandId FOUND")
+  --util.debugLog("ABSORB: BEFORE CHECKING storage.stagehandId is dead")
+  while world.entityExists(storage.stagehandId or -1)
   do
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, objectPosition)
-    objectPosition = vec2.add(world.entityPosition(entityId), object.attachPoint)
-    local offset = self:beamPosition(objectPosition)
+    --util.debugLog("ABSORB: CHECKING storage.stagehandId IS ALIVE")
+    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
+    spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
+    local offset = self:beamPosition(spawnerPos)
     self:drawBeam(vec2.add(self:firePosition(), offset), false)
-    --[[
-    scanTimer = scanTimer - script.updateDt()
-    if scanTimer == 0 then
-      break
-    end
-    --]]
+
     coroutine.yield()
   end
-
+  --util.debugLog("ABSORB: storage.stagehandId is DEAD, ABOUT TO CLEAR spawner")
+  storage.stagehandId = nil
+  storage.spawner = nil
   animator.stopAllSounds("loop")
   animator.playSound("stop")
-
+  --util.debugLog("ABSORB: storage.spawner CLEARED")
   timer = self.beamReturnTime
   while timer > 0 do
-    local offset = self:beamPosition(objectPosition)
+    local offset = self:beamPosition(spawnerPos)
     self:drawBeam(vec2.add(self:firePosition(), vec2.mul(offset, timer / self.beamReturnTime)), false)
 
     timer = timer - script.updateDt()
 
     coroutine.yield()
   end
-  animator.setGlobalTag("absorbed", string.format("%s", #storage.grabbedParam*3))
+  animator.setGlobalTag("absorbed", string.format("%s", 0))
   self.cooldownTimer = self.cooldownTime
 end
 
 function NpcInject:fire()
-  self.weapon:setStance(self.stances.absorb)
-  animator.playSound("start")
-  animator.playSound("loop", -1)
 
-  local spawnPosition = activeItem.ownerAimPosition()
-
-  local last = #storage.grabbedParam
-  local spawner = storage.grabbedParam[last]
-
-  local timer = 0
-  while timer < self.beamReturnTime do
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnPosition)
-
-    local offset = self:beamPosition(spawnPosition)
-    self:drawBeam(vec2.add(self:firePosition(), vec2.mul(offset, timer / self.beamReturnTime)), false)
-    timer = timer + script.updateDt()
-
-    coroutine.yield()
-  end
-
-  if not world.polyCollision(poly.translate(spawner.collisionPoly, spawnPosition)) then
-    --world.spawnMonster(monster.monsterType, vec2.sub(spawnPosition, monster.attachPoint), monster.parameters)
-    storage.grabbedParam[last] = nil
-    animator.setGlobalTag("absorbed", string.format("%s", 3))
-
-    util.wait(0.3, function()
-      self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnPosition)
-
-      local offset = self:beamPosition(spawnPosition)
-      self:drawBeam(vec2.add(self:firePosition(), offset), false)
-    end)
-  else
-    animator.playSound("error")
-  end
-
-  animator.stopAllSounds("loop")
-  animator.playSound("stop")
-
-  timer = self.beamReturnTime
-  while timer > 0 do
-    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnPosition)
-
-    local offset = self:beamPosition(spawnPosition)
-    self:drawBeam(vec2.add(self:firePosition(), vec2.mul(offset, timer / self.beamReturnTime)), false)
-    timer = timer - script.updateDt()
-
-    coroutine.yield()
-  end
-
-  self.cooldownTimer = self.cooldownTime
 end
 
 function NpcInject:drawBeam(endPos, didCollide)
@@ -310,4 +283,11 @@ function NpcInject:reset()
   animator.stopAllSounds("loop")
   self.weapon:setDamage()
   activeItem.setScriptedAnimationParameter("chains", {})
+end
+
+
+function debugFunction(func, ...)
+  util.setDebug(true)
+  func(...)
+  util.setDebug(false)
 end
