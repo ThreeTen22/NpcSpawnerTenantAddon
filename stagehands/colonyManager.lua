@@ -63,15 +63,23 @@ function update(dt)
         local entityId = nil
         local tenantPortraits = {}
         local typeConfig = {}
+  
         for i,v in ipairs(tenants) do
             entityId = world.loadUniqueEntity(tenants[i].uniqueId)
+            if type(entityId) == "nil" or entityId == 0 then
+                world.callScriptedEntity(self.deedId, "respawnTenants")
+                return
+            end
             --sb.logInfo("entityID: %s",entityId)
             tenantPortraits[i] = {}
             
             tenantPortraits[i].full = world.entityPortrait(entityId, "full")
+
+            if isEmpty(tenantPortraits[i].full or {}) then
+                return
+            end
             tenantPortraits[i].head = world.entityPortrait(entityId, "head")
             tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
-
             if v.spawn == "npc" then
                 if not typeConfig[v.type] then
                     typeConfig[v.type] = root.npcConfig(v.type)
@@ -224,13 +232,10 @@ function validateTenant(tenantJson)
         end
 
         --now check to see if there is proper dialogue, if not, add defaults.
-        local dialogue = tenant:instanceValue("scriptConfig.dialogue.tenant")
-        if not (dialogue and isEmpty(dialogue)) then
-            tenant:setInstanceValue("scriptConfig.dialogue.tenant", config.getParameter("defaultTenantDialogue.tenant"))
-        end
-
+        
     end
     
+   
     return true, tenant:toJson()
 end
 

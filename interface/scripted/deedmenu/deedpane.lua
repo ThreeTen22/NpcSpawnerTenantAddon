@@ -198,6 +198,7 @@ function init()
             if item.tenant then
                 
                 local portrait = item.tenant:getPortrait("full")
+                
                 drawParam = config.getParameter("portraitCanvas.drawImage.stand")
 
                 self.portraitCanvas:drawImage(drawParam.image, vec2.add(center, drawParam.position), drawParam.scale, drawParam.color, drawParam.centered)

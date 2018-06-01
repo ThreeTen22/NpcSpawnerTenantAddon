@@ -8,7 +8,7 @@ NpcInject = WeaponAbility:new()
 function NpcInject:init()
   --if not storage then storage = {} end
 
-  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   util.setDebug(false)
   --util.debugLog("Ininit")
   --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
@@ -55,7 +55,7 @@ function NpcInject:init()
   end)
 
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
-    --util.debugLog("npcinjector.onPaneDismissed")
+    --util.debugLog("npcinjector.")
     storage.spawner = nil
     storage.stagehandId = nil
     self:reset()
@@ -116,6 +116,10 @@ function NpcInject:scan()
           return false
         end
         if world.getObjectParameter(objectId, "category") ~= "spawner" then
+          return false
+        end
+        if world.getObjectParameter(objectId, "npcArgs") ~= nil
+        then
           return false
         end
         return true

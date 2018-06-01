@@ -25,20 +25,41 @@
             "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"           
         ]
     },
-    "defaultTenantDialogue" : {
-        "tenant" : {
-            "arrivedHome" : {
-             "beacon" : "/dialog/arrivedhome.config:beacon",
-             "rent" : "/dialog/arrivedhome.config:rent"
+    "defaults" : {
+        "dialogue" : {
+            "tenant" : {
+                "arrivedHome" : {
+                "beacon" : "/dialog/arrivedhome.config:beacon",
+                "rent" : "/dialog/arrivedhome.config:rent"
+                },
+                "grumbles" : {
+                "final" : "/dialog/grumble.config:final",
+                "tagCriteria" : "/dialog/grumble.config:tagCriteria",
+                "otherDeed" : "/dialog/grumble.config:otherDeed",
+                "enclosedArea" : "/dialog/grumble.config:enclosedArea",
+                "severe" : "/dialog/grumble.config:severe"
+                }
             },
-            "grumbles" : {
-             "final" : "/dialog/grumble.config:final",
-             "tagCriteria" : "/dialog/grumble.config:tagCriteria",
-             "otherDeed" : "/dialog/grumble.config:otherDeed",
-             "enclosedArea" : "/dialog/grumble.config:enclosedArea",
-             "severe" : "/dialog/grumble.config:severe"
-            }
+            "converse" : "/dialog/converse.config:converse",
+            "greeting" : "/dialog/converse.config:greeting",
+            "accuse" : "/dialog/thief.config:accuse"
+        },
+        "behavior" : {
+            "tenantModule" :       {
+                "title": "Tenant Baseline Behavior",
+                "type": "module",
+                "name": "Tenant Baseline Behavior",
+                "parameters": {}
+              },
+              "converse" : {
+                "title": "converse",
+                "type": "module",
+                "name": "converse",
+                "parameters": {}
+              }
+        },
+        "behaviors" : {
+            "hostileguard" : "/behaviors/npc/hostileguard.behavior"
         }
-        
     }
 }
