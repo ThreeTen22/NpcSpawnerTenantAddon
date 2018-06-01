@@ -1,0 +1,8 @@
+{
+  "input" : [
+    { "item" : "money", "count" : 1000 }
+  ],
+  "output" : { "item" : "spawnerstation", "count" : 1 },
+  "duration" : 5,
+  "groups" : [ "inventorstable3", "craftingstations", "all"]
+}

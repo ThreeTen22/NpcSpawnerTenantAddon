@@ -4,8 +4,8 @@
   "inventoryIcon" : "npcinjector.png:0",
   "maxStack" : 1,
   "rarity" : "Legendary",
-  "description" : "Insert an Npc Card and inject an NPC into deeds and select N.P.C. Inc. products",
-  "shortdescription" : "Npc Injector Beam",
+  "description" : "Use this tool on colony deeds to modify the the object and its tenants.",
+  "shortdescription" : "Tenantator 2000",
   "level" : 1,
   "category" : "Tool",
 
