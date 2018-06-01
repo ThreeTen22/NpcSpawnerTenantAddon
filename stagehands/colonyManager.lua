@@ -20,15 +20,20 @@ function init()
     })
     self.deedCheckup:start()
     self.timers:manage(self.deedCheckup)
+
+    self.respawnTenantsDelay = Timer:new("respawnTenants", {
+        delay = 1.5,
+        completeCallback = respawnTenants,
+        loop = false
+    })
+    self.timers:manage(self.respawnTenantsDelay)
     
-    --message.setHandler("delayDeath", function(...) self.deathTimer:reset() return true end)
-    message.setHandler("onPaneDismissed", function(...) stagehand.die() end)
     message.setHandler("colonyManager.die", function(...) stagehand.die() end)
     message.setHandler("getTenants", simpleHandler(getTenants))
     message.setHandler("addTenant", simpleHandler(addTenant))
     message.setHandler("removeTenant", simpleHandler(removeTenant))
     message.setHandler("setDeedConfig", simpleHandler(setDeedConfig))
-    message.setHandler("setTenantInstance", simpleHandler(setTenantInstance))
+    message.setHandler("setTenantInstanceValue", simpleHandler(setTenantInstanceValue))
     self.hasScanned = false
 end
 
@@ -54,16 +59,6 @@ function update(dt)
             self.hasScanned = true
             return
         end
-       
-        
-        
-        --[[
-        if #tenants == 0 then
-            world.callScriptedEntity(self.deedId, "object.say", "This deed requires a valid house with at least one tenant before modification can occur.")
-            world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOccupied"})
-            return stagehand.die()
-        end
-        --]]
         
         local entityId = nil
         local tenantPortraits = {}
@@ -145,12 +140,23 @@ function setDeedConfig(configItem)
     end
 end
 
-function setTenantInstance(index, overrides)
+function setTenantInstanceValue(index, tenant, jsonPath, value)
     local tenants = getTenants()
-    local merged = sb.merge(tenants[index].overrides or {}, overrides)
-    debugFunction(util.debugLog, "before : %s \n%s", sb.printJson(tenants[index].overrides or {}, 1), sb.printJson(overrides, 1))
+    local merged = sb.jsonMerge(tenants[index] or {}, tenant)
+    tenants[index] = merged
+    if value == "jarray" then value = jarray() end
+    jsonSetPath(tenants[index].overrides, jsonPath, value) 
+    local tenantId = world.loadUniqueEntity(tenants[index].uniqueId)
+    if tenantId ~= 0 then
+        world.callScriptedEntity(tenantId, "status.addEphemeralEffect", "beamoutanddie")
+    end
+    self.respawnTenantsDelay:start()
+end
 
-    debugFunction(util.debugLog, "merged: \n%s", sb.printJson(merged, 1))
+function respawnTenants()
+    if world.entityExists(self.deedId) then
+        world.callScriptedEntity(self.deedId, "respawnTenants")
+    end
 end
 
 function isPlayerAlive()
@@ -163,22 +169,22 @@ end
 --WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables if passed to you...)
 
 function removeTenant(tenantUuid, spawn, shouldDie)
+    if isDeedAlive() then 
+        local tenants = getTenants()
 
-    local tenants =  getTenants()
+        table.sort(tenants, function(i,j) 
+            return i.spawn > j.spawn
+        end)
 
-    table.sort(tenants, function(i,j) 
-        return i.spawn > j.spawn
-    end)
-
-    local entityId = world.loadUniqueEntity(tenantUuid)
-    --util.debugLog(sb.printJson(v or "nil"))
-    if entityId ~= 0 then
-        --world.callScriptedEntity(self.deedId, "detachTenant", v)
-        world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
-        world.callScriptedEntity(entityId, "tenant.evictTenant")
-        
+        local entityId = world.loadUniqueEntity(tenantUuid)
+        --util.debugLog(sb.printJson(v or "nil"))
+        if entityId ~= 0 then
+            --world.callScriptedEntity(self.deedId, "detachTenant", v)
+            world.callScriptedEntity(entityId, "tenant.detachFromSpawner")
+            world.callScriptedEntity(entityId, "tenant.evictTenant")
+            
+        end
     end
-
     if shouldDie then
         stagehand.die()
     end
@@ -192,21 +198,40 @@ function getTenants()
     return {}
 end
 
+function createVariant(tenant, useOverrides)
+    if tenant.spawn == "npc" then
+        if useOverrides == true then
+            return pcall(root.npcVariant, tenant.species, tenant.type, 1, 1, tenant.overrides or {})
+        else
+            return pcall(root.npcVariant, tenant.species, tenant.type, 1)
+        end
+    end
+end
+
 function validateTenant(tenantJson)
     local spawning, tenant, species, crew
     --if new class isnt created then there is a problem with type
-    --
-    spawning, tenant = pcall(Tenant.new, tenantJson)
+
+    spawning, tenant = pcall(Tenant.new, copy(tenantJson))
     if not spawning then
         return false, config.getParameter("spawningErrors.type")
     end
+    spawning = true
     if tenant.spawn == "npc" then
-        spawning, _ = pcall(tenant.getVariant, tenant)
+        spawning, _ = createVariant(tenantJson)
+        if not spawning then 
+            return false, config.getParameter("spawningErrors.species")
+        end
+
+        --now check to see if there is proper dialogue, if not, add defaults.
+        local dialogue = tenant:instanceValue("scriptConfig.dialogue.tenant")
+        if not (dialogue and isEmpty(dialogue)) then
+            tenant:setInstanceValue("scriptConfig.dialogue.tenant", config.getParameter("defaultTenantDialogue.tenant"))
+        end
+
     end
-    if not spawning then 
-        return false, config.getParameter("spawningErrors.species")
-    end
-    return true, tenantJson
+    
+    return true, tenant:toJson()
 end
 
 function addTenant(tenantJson, shouldDie)
@@ -214,9 +239,10 @@ function addTenant(tenantJson, shouldDie)
 
         local spawning, output = validateTenant(tenantJson)
         if spawning then 
-            world.callScriptedEntity(self.deedId, "addTenant", tenantJson)
+            world.callScriptedEntity(self.deedId, "addTenant", output)
         else
             world.callScriptedEntity(self.deedId, "object.sayPortrait", output[1], output[2], {spawn=tenantJson.spawn,type=tenantJson.type, species=tenantJson.species})
+            world.callScriptedEntity(self.deedId, "animator.setAnimationState", "deedState", "error")
         end
     end
     if shouldDie then
@@ -257,4 +283,21 @@ function debugFunction(func, ...)
     util.setDebug(true)
     func(...)
     util.setDebug(false)
+end
+--overwrites util.lua as this will actually null out and fully replace tables and values.
+function jsonSetPath(t, jsonPath, value)
+
+    local argList = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
+
+    local key = table.remove(argList)
+    
+    for i,child in ipairs(argList) do
+        if type(t[child]) ~= "nil" then
+            t = t[child]
+        else
+            t[child] = {}
+            t = t[child]
+        end
+    end
+    t[key] = value
 end

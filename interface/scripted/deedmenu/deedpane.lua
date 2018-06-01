@@ -25,8 +25,39 @@ comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
+--[[
+comp.list -
+if v2 = null, return true if 
+    v1: nil --- v2: null
+    v1: not a table --- v2: null
+(same as using "ne", so use that).  
+if v2 = boolean, return true if  
+    v1: exists--- v2: true
+if v2 = number, return true if
+    v1 exists, is a table, and #v1 == v2
+--]]
+comp.table = function(v1, v2, v3)
 
+    v2 = comp.resolve(v2)
+    v3 = comp.resolve(v3)
+    local v2Type = type(v2)
+    local v3Type = type(v3)
 
+    if v3Type == "number" then
+        if v2Type == "table" then
+            return comp[v1](#v2, v3)
+        end
+    elseif v3Type == "boolean" then
+        if v2Type == "table" then
+            return comp[v1](not v2,not v3)
+        end
+    elseif v3Type == "nil" then
+        if v2Type == "table" then
+            return comp[v1](v2,v3)
+        end
+    end
+    return false
+end
 comp.set = function(v1, v2) 
     v1, v2 = comp.resolve(v1), comp.resolve(v2)
     if type(v1) ~= "nil" then
@@ -36,11 +67,14 @@ comp.set = function(v1, v2)
 end
 
 comp["and"] = function(v1, v2)
-    return comp[v1[1]](v1[2], v1[3]) and comp[v2[1]](v2[2], v2[3])
+    local key1 = table.remove(v1, 1)
+    local key2 = table.remove(v2, 1)
+    return comp[key1](table.unpack(v1)) and comp[key2](table.unpack(v2))
 end
 
 comp["or"] = function(v1, v2)
-    return comp[v1[1]](v1[2], v1[3]) or comp[v2[1]](v2[2], v2[3])
+    local key1, key2 = table.remove(v1, 1), table.remove(v2)
+    return comp[key1](table.unpack(v1)) and comp[key2](table.unpack(v2))
 end
 
 comp.contains = function(v1, v2) 
@@ -142,12 +176,17 @@ function init()
     self.selectedTenantInstanceValue = function(jsonPath, default)
         local item = listManager:getSelectedItem()
         if not item then return default end
-        return item.tenant:instanceValue(jsonPath) or default
+        return item.tenant:instanceValue(jsonPath)
+    end
+    self.selectedTenantOverrideValue = function(jsonPath, default)
+        local item = listManager:getSelectedItem()
+        if not item then return default end
+        return sb.jsonQuery(item.tenant.overrides, jsonPath)
     end
     self.selectedTenantConfigValue = function(jsonPath, default)
         local item = listManager:getSelectedItem()
         if not item then return default end
-        return item.tenant:getConfig(jsonPath) or default
+        return item.tenant:getConfig(jsonPath)
     end
 
     self.drawPortrait = function()
@@ -201,6 +240,8 @@ function init()
     ))
     self.tenantFromNpcCard = tenantFromNpcCard
     self.tenantFromCapturePod = tenantFromCapturePod
+
+    --DEBUG:
 end
 
 function update(dt)
@@ -210,7 +251,6 @@ end
 
 function dismissed()
     world.sendEntityMessage(pane.sourceEntity() or -1, "colonyManager.die")
-    --world.sendEntityMessage(player.id(), "npcinjector.onPaneDismissed")
 end
 
 function uninit()
@@ -334,9 +374,16 @@ function SetTenantInstanceValue(id, data)
     else
         tenant:setInstanceValue(data.path, value)
     end
+
+    widget.setButtonEnabled(id, false)
+    promises:add(world.sendEntityMessage(pane.sourceEntity(), "setTenantInstanceValue", tenant.jsonIndex+1, tenant.overrides, data.path, value),
+    function()
+        widget.setButtonEnabled(id, true)
+    end)
+
     util.debugLog("checked and value:  %s   %s", checked, value)
-    util.debugJson(data, true, "data:\n %s" )
-    util.debugJson(tenant.overrides.scriptConfig, true, "jsonValue:\n %s")
+    --util.debugJson(data, true, "data:\n %s" )
+    --util.debugJson(tenant.overrides.scriptConfig, true, "jsonValue:\n %s")
 end
 
 
@@ -373,6 +420,7 @@ function onTenantListItemPressed(id, data)
     end)
 
     listManager:setSelectedItem(checkCount[1])
+
     if not listManager:getSelectedItem() then
         self.setState("selectNone")
     elseif item.isCreateNewItem then
@@ -390,7 +438,8 @@ function updateWidgets(state)
         local queue = applyDefaults(self.configParam(widgetName.."."..state, {}), self.configParam(widgetName..".default", {}))
         
         for k,v in pairs(queue) do
-            local args = comp[v[1]](v[2], v[3])
+            local key = table.remove(v, 1)
+            local args = comp[key](table.unpack(v))
             if widget[k] then
                 --util.debugJson(v, "v:  %s", 1)
                 if type(args) == "table" then

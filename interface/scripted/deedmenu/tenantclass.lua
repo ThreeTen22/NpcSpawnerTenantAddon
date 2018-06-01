@@ -31,7 +31,11 @@ function Tenant:init(args)
         self[k] = v
     end
     if self.dataSource ~= "config" then
-        self.config = root.npcConfig(self.type)
+        if self.spawn == "npc" then 
+            self.config = root.npcConfig(self.type)
+        else
+            self.config = root.monsterParameters(self.type)
+        end
     else 
         self.config = "configs."..self.type.."."
     end
@@ -58,7 +62,13 @@ function Tenant:getConfig(jsonPath, default)
 end
 
 function Tenant:instanceValue(jsonPath, default)
-    return self[jsonPath] or sb.jsonQuery(self.overrides, jsonPath) or self:getConfig(jsonPath, default)
+    if type(self[jsonPath]) ~= "nil" then
+        return self[jsonPath]
+    elseif type(sb.jsonQuery(self.overrides, jsonPath)) ~= "nil" then
+        return sb.jsonQuery(self.overrides, jsonPath)
+    else
+        return self:getConfig(jsonPath, default)
+    end
 end
 
 
@@ -81,16 +91,6 @@ function Tenant:toJson()
     }
 end
 
-function Tenant:getVariant(useOverrides)
-    if spawn == "npc" then
-        if useOverrides == true then
-            return root.npcVariant(self.species, self.type, 1, 1, overrides)
-        else
-            return root.npcVariant(self.species, self.type, 1)
-        end
-    end
-end
-
 function jsonSetPath(t, jsonPath, value)
 
     local argList = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
@@ -109,5 +109,6 @@ function jsonSetPath(t, jsonPath, value)
 end
 
 --[[
-/eval guard={scriptConfig=root.assetJson("/npcs/hiredguard.npctype:scriptConfig")};newGuard= {scriptConfig={questGenerator=root.assetJson("/npcs/friendlyguard.npctype:scriptConfig.questGenerator")}}; return sb.printJson(sb.jsonMerge(guard,newGuard), 1)
+Things to potentially add for later:
+npc: "scriptConfig.nametagColor" - for changing nametags
 ]]
