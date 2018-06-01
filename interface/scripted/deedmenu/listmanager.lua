@@ -1,4 +1,5 @@
 require "/scripts/util.lua"
+require "/interface/scripted/deedmenu/tenantclass.lua"
 
 listManager = {
     template = {
@@ -19,13 +20,20 @@ end
 function listManager:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
-    self.selectedItemId = nil
+    self.selectedItemId = -1
     self.listId = "tenantList"
     self.listPath = "listLayout.tenantList"
+
+    if #tenants == 0 then
+        widget.setVisible(self.listPath, false)
+        return
+    end
+
 
     widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
     local itemId = nil
     widget.clearListItems(self.listPath)
+
     for i = 1, math.min(#tenants+1, 5) do
         sb.logInfo("listPath: %s", self.listPath)
         

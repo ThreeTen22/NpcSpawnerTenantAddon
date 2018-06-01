@@ -42,7 +42,11 @@ function Tenant:getPortrait(type)
         local path = string.format("tenantPortraits.%s.%s", self.jsonIndex, type)
         return config.getParameter(path)
     else
-        return root.npcPortrait(type, self.species, self.npcType, 1, self.overrides)
+        if self.spawn == "npc" then
+            return root.npcPortrait(type, self.species, self.type, 1, self.overrides or {})
+        else
+            return root.monsterPortrait(self.type, self.overrides or {})
+        end
     end
 end
 
@@ -79,7 +83,7 @@ function Tenant:toJson()
     }
 end
 
-function Tenant:toVariant(skipOverrides)
+function Tenant:getVariant(skipOverrides)
     if spawn == "npc" then
         if skipOverrides then
             return root.npcVariant(self.species, self.type, 1)

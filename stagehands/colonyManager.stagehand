@@ -7,9 +7,18 @@
         "/stagehands/colonymanager.lua"
     ],
     "scriptDelta" : 5,
-    "deedUuid": "",
     "playerUuid": "", 
     "playerId" : "",
     "deedId": "",
-    "deedPosition": []
+    "deedPosition": [],
+    "spawningErrors" : {
+        "type" : [
+            "Critical Failure: \nThe provided <spawn> cannot be added.  The ^yellow;<type> type^white; is unknown",
+            "/objects/spawner/colonydeed/colonydeed.png:error.1"
+        ],
+        "species" : [
+            "Critical Failure: \nThe provided <spawn> cannot be added.  The ^yellow;<type> type^white; is unknown",
+            "/objects/spawner/colonydeed/colonydeed.png:error.1"           
+        ]
+    }
 }

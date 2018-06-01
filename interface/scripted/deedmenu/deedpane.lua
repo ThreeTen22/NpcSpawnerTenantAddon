@@ -206,6 +206,13 @@ function SetDeedConfig(id, data)
 
 end
 
+function onModifyTenantButtomPressed(id, data)
+    if self.getState() == "modifyTenant" then
+        return self.setState("selectTenant")
+    end
+    return self.setState("modifyTenant")
+end
+
 function onImportItemSlotInteraction(id, data)
 
     local fullPath = "detailArea."..id
@@ -216,9 +223,9 @@ function onImportItemSlotInteraction(id, data)
         
         widget.setItemSlotItem(fullPath, item)
         tenant = self[data.extractFunc](player.swapSlotItem())
-  util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
+        --util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
 
-        world.sendEntityMessage(stagehandId, "addTenants", {tenant}, true)
+        world.sendEntityMessage(stagehandId, "addTenant", tenant, true)
         --pane.dismiss()
         return
     end

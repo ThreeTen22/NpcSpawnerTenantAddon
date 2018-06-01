@@ -1,10 +1,11 @@
 require "/scripts/messageutil.lua"
+require "/interface/scripted/deedmenu/tenantclass.lua"
 
 function init()
     --if not storage then storage = {} end
     self.debug = false
-    logENV()
-    self.deedUuid = config.getParameter("deedUuid")
+    --logENV()
+    --self.deedUuid = config.getParameter("deedUuid") or world
     self.deedId = config.getParameter("deedId")
     self.playerUuid = config.getParameter("playerUuid")
     self.playerId = config.getParameter("playerId")
@@ -13,7 +14,7 @@ function init()
 
 
     self.deedCheckup = Timer:new("deedCheckup", {
-        delay = 0.08,
+        delay = script.updateDt(),
         completeCallback = updateSelf,
         loop = true
     })
@@ -24,11 +25,11 @@ function init()
     message.setHandler("onPaneDismissed", function(...) stagehand.die() end)
     message.setHandler("colonyManager.die", function(...) stagehand.die() end)
     message.setHandler("getTenants", simpleHandler(getTenants))
-    message.setHandler("addTenants", simpleHandler(addTenants))
+    message.setHandler("addTenant", simpleHandler(addTenant))
     message.setHandler("replaceTenants", simpleHandler(replaceTenants))
     message.setHandler("removeTenant", simpleHandler(removeTenant))
     message.setHandler("setDeedConfig", simpleHandler(setDeedConfig))
-    
+    self.hasScanned = false
 end
 
 function update(dt)
@@ -45,14 +46,25 @@ function update(dt)
             world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
             return stagehand.die()
         end
-        
-        local tenants = getTenants()
 
+        local tenants = getTenants()
+        --check to see if the tenant has been scanned, if not, scan it to ensure its a grumble
+        if #tenants == 0 and not self.hasScanned then
+            world.callScriptedEntity(self.deedId, "scan")
+            self.hasScanned = true
+            return
+        end
+       
+        
+        
+        --[[
         if #tenants == 0 then
             world.callScriptedEntity(self.deedId, "object.say", "This deed requires a valid house with at least one tenant before modification can occur.")
             world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOccupied"})
             return stagehand.die()
         end
+        --]]
+        
         local entityId = nil
         local tenantPortraits = {}
         local typeConfig = {}
@@ -76,9 +88,9 @@ function update(dt)
             end
 
         end
-        sb.logInfo(sb.printJson(tenants, 1))
+        --sb.logInfo(sb.printJson(tenants, 1))
 
-        promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",entity.id(), tenants, tenantPortraits, typeConfig), 
+        promises:add(world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandSuccess",entity.id(), tenants or {}, tenantPortraits or {}, typeConfig), 
         function()
             self.state = "main"
         end,
@@ -86,8 +98,9 @@ function update(dt)
             sb.logError("npcinjector.onStagehandSuccess failed")
             stagehand.die()
         end)
+        update = mainUpdate
     end
-    update = mainUpdate
+    
 end
 
 function mainUpdate(dt)
@@ -139,7 +152,7 @@ function isPlayerAlive()
     return false
 end
 
---WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables...)
+--WARNING:  THIS DIRECTLY MODFIES THE STORAGE TABLE ON THE COLONY DEED. DONT FUCK WITH THIS! (who knew you could directly reference other entity's enviroment tables if passed to you...)
 
 function removeTenant(tenantUuid, spawn, shouldDie)
 
@@ -172,13 +185,24 @@ function getTenants()
     return {}
 end
 
-function addTenants(tenantArray, shouldDie)
+function validateTenant(tenantJson)
+    local spawning, tenant, species, crew
+    --if new class isnt created then there is a problem with type
+    --
+    spawning, tenant = pcall(Tenant.new, tenantJson)
+    if not spawning then
+        return false, "Spawning Error:"
+    end
+
+end
+
+function addTenant(tenantJson, shouldDie)
     tenantArray = tenantArray or {}
     if self.state == "main" and isDeedAlive() then
-        local deedId = self.deedId
-        for i,v in ipairs(tenantArray) do
-                world.callScriptedEntity(deedId, "addTenant", v)
-        end
+
+        --local spawning, output = validateTenant(tenantJson)
+
+        world.callScriptedEntity(self.deedId, "addTenant", tenantJson)
     end
     if shouldDie then
         stagehand.die()
@@ -203,13 +227,19 @@ function logENV()
     local tbl = {}
     for i,v in pairs(_ENV) do
       if type(v) == "function" then
-        indx, tbl[indx] = indx+1, sb.print("%s", i)
-        
+        indx, tbl[indx] = indx+1, sb.print(i)
       elseif type(v) == "table" then
         for j,k in pairs(v) do
-          indx, tbl[indx] = indx+1, sb.print("%s.%s (%s)", i, j, type(k))
+          indx, tbl[indx] = indx+1, string.format("%s.%s (%s)", sb.print(i), sb.print(j), type(k))
         end
       end
     end
-    sb.logInfo(sb.printJson(tbl, 1))
-  end
+    table.sort(tbl)
+    sb.logInfo(table.concat(tbl, "\n"))
+end
+
+function debugFunction(func, ...)
+    util.setDebug(true)
+    func(...)
+    util.setDebug(false)
+end

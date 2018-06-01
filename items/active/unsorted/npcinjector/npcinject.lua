@@ -8,9 +8,9 @@ NpcInject = WeaponAbility:new()
 function NpcInject:init()
   --if not storage then storage = {} end
 
-  debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
-  self.debug = false
-  util.debugLog("Ininit")
+  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  util.setDebug(false)
+  --util.debugLog("Ininit")
   --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
@@ -21,10 +21,10 @@ function NpcInject:init()
     self.weapon:setStance(self.stances.idle)
   end
 
-  storage.stagehandId = storage.stagehandId or nil
+  storage.stagehandId = storage.stagehandId
 
   message.setHandler("npcinjector.onStagehandSuccess", function(_,_,id, tenants, tenantPortraits, typeConfig)
-    util.debugLog("npcinjector.onStagehandSuccess ")
+    --util.debugLog("npcinjector.onStagehandSuccess")
 
     storage.stagehandId = id
 
@@ -47,7 +47,7 @@ function NpcInject:init()
     return true
   end)
   message.setHandler("npcinjector.onStagehandFailed", function(_,_,args)
-    util.debugLog("npcinjector.onStagehandFailed")
+    --util.debugLog("npcinjector.onStagehandFailed")
     storage.stagehandId = nil
     storage.spawner = nil
 
@@ -55,7 +55,7 @@ function NpcInject:init()
   end)
 
   message.setHandler("npcinjector.onPaneDismissed", function(_,_,...)
-    util.debugLog("npcinjector.onPaneDismissed")
+    --util.debugLog("npcinjector.onPaneDismissed")
     storage.spawner = nil
     storage.stagehandId = nil
     self:reset()
@@ -80,6 +80,7 @@ function NpcInject:update(dt, fireMode, shiftHeld)
       self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
     else
       --animator.playSound("error")
+      --util.debugLog("inside firemode - else statement - storage.spawner cleared")
       self.cooldownTimer = 0
       storage.spawner = nil
       storage.stagehandId = nil
@@ -87,25 +88,13 @@ function NpcInject:update(dt, fireMode, shiftHeld)
   end
   if self.fireMode == "alt" then
     --DEBUG:  DONT KEEP
-    
+    --util.debugLog("inside firemode - alt - storage.spawner cleared")
     --self.weapon:setStance(self.stances.idle)
     self.cooldownTimer = 0
     storage.spawner = nil
     storage.stagehandId = nil
     
   end
-  --[[
-  local mag = world.magnitude(mcontroller.position(), activeItem.ownerAimPosition())
-  if self.fireMode == "alt"
-    and not self.weapon.currentAbility
-    and self.cooldownTimer == 0
-    and #storage.spawner > 0
-    and mag > vec2.mag(self.weapon.muzzleOffset) and mag < self.maxRange
-    and not world.lineTileCollision(self:firePosition(), activeItem.ownerAimPosition()) then
-
-    self:setState(self.fire)
-  end
-  --]]
 end
 
 function NpcInject:scan()
@@ -183,7 +172,7 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
 
   local spawnerPos = {0, 0}
 
-
+  --util.debugLog("ABSORB: BEGIN")
   local timer = 0
   while timer < self.beamReturnTime do
     if world.entityExists(deedId) then
@@ -202,13 +191,16 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
   animator.stopAllSounds("loop")
   
 
- 
+  --util.debugLog("ABSORB: BEFORE CHECKING storage.stagehandId")
   while not world.entityExists(storage.stagehandId or -1) and storage.spawner do
+    --util.debugLog("ABSORB: WAIT FOR storage.stagehandId")
     coroutine.yield()
   end
-
+  --util.debugLog("ABSORB: storage.stagehandId FOUND")
+  --util.debugLog("ABSORB: BEFORE CHECKING storage.stagehandId is dead")
   while world.entityExists(storage.stagehandId or -1)
   do
+    --util.debugLog("ABSORB: CHECKING storage.stagehandId IS ALIVE")
     self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
     spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
     local offset = self:beamPosition(spawnerPos)
@@ -216,11 +208,12 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
 
     coroutine.yield()
   end
+  --util.debugLog("ABSORB: storage.stagehandId is DEAD, ABOUT TO CLEAR spawner")
   storage.stagehandId = nil
   storage.spawner = nil
   animator.stopAllSounds("loop")
   animator.playSound("stop")
-
+  --util.debugLog("ABSORB: storage.spawner CLEARED")
   timer = self.beamReturnTime
   while timer > 0 do
     local offset = self:beamPosition(spawnerPos)
@@ -283,7 +276,6 @@ function NpcInject:uninit()
 end
 
 function NpcInject:reset()
-  util.debugLog("npcinject: reset")
   animator.stopAllSounds("loop")
   self.weapon:setDamage()
   activeItem.setScriptedAnimationParameter("chains", {})
