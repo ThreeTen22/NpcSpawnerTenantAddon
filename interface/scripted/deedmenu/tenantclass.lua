@@ -63,13 +63,11 @@ end
 
 
 function Tenant:setInstanceValue(jsonPath, value)
-    if value then
-        if self[jsonPath] then
-            self[jsonPath] = value
-            return
-        end
-        jsonSetPath(self.overrides, jsonPath, value)
+    if type(self[jsonPath]) ~= "nil" then
+        self[jsonPath] = value
+        return
     end
+    jsonSetPath(self.overrides, jsonPath, value)
 end
 
 function Tenant:toJson()
@@ -83,12 +81,33 @@ function Tenant:toJson()
     }
 end
 
-function Tenant:getVariant(skipOverrides)
+function Tenant:getVariant(useOverrides)
     if spawn == "npc" then
-        if skipOverrides then
-            return root.npcVariant(self.species, self.type, 1)
-        else
+        if useOverrides == true then
             return root.npcVariant(self.species, self.type, 1, 1, overrides)
+        else
+            return root.npcVariant(self.species, self.type, 1)
         end
     end
 end
+
+function jsonSetPath(t, jsonPath, value)
+
+    local argList = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
+
+    local key = table.remove(argList)
+    
+    for i,child in ipairs(argList) do
+        if type(t[child]) ~= "nil" then
+            t = t[child]
+        else
+            t[child] = {}
+            t = t[child]
+        end
+    end
+    t[key] = value
+end
+
+--[[
+/eval guard={scriptConfig=root.assetJson("/npcs/hiredguard.npctype:scriptConfig")};newGuard= {scriptConfig={questGenerator=root.assetJson("/npcs/friendlyguard.npctype:scriptConfig.questGenerator")}}; return sb.printJson(sb.jsonMerge(guard,newGuard), 1)
+]]

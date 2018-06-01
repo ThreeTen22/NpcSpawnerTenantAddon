@@ -17,7 +17,7 @@
             "/objects/spawner/colonydeed/colonydeed.png:error.1"
         ],
         "species" : [
-            "Critical Failure: \nThe provided <spawn> cannot be added.  The ^yellow;<type> type^white; is unknown",
+            "Critical Failure: \nThe provided <spawn> cannot be added.  The ^yellow;<species> species^white; is unknown",
             "/objects/spawner/colonydeed/colonydeed.png:error.1"           
         ]
     }

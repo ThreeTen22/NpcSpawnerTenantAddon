@@ -26,9 +26,9 @@ function init()
     message.setHandler("colonyManager.die", function(...) stagehand.die() end)
     message.setHandler("getTenants", simpleHandler(getTenants))
     message.setHandler("addTenant", simpleHandler(addTenant))
-    message.setHandler("replaceTenants", simpleHandler(replaceTenants))
     message.setHandler("removeTenant", simpleHandler(removeTenant))
     message.setHandler("setDeedConfig", simpleHandler(setDeedConfig))
+    message.setHandler("setTenantInstance", simpleHandler(setTenantInstance))
     self.hasScanned = false
 end
 
@@ -145,6 +145,14 @@ function setDeedConfig(configItem)
     end
 end
 
+function setTenantInstance(index, overrides)
+    local tenants = getTenants()
+    local merged = sb.merge(tenants[index].overrides or {}, overrides)
+    debugFunction(util.debugLog, "before : %s \n%s", sb.printJson(tenants[index].overrides or {}, 1), sb.printJson(overrides, 1))
+
+    debugFunction(util.debugLog, "merged: \n%s", sb.printJson(merged, 1))
+end
+
 function isPlayerAlive()
     if world.findUniqueEntity(self.playerUuid):result() then
         return true
@@ -178,8 +186,7 @@ end
 
 function getTenants()
     if isDeedAlive() then
-        local deedId = self.deedId
-        local tenants = world.callScriptedEntity(deedId, "getTenants")
+        local tenants = world.callScriptedEntity(self.deedId, "getTenants")
         return tenants
     end
     return {}
@@ -191,18 +198,26 @@ function validateTenant(tenantJson)
     --
     spawning, tenant = pcall(Tenant.new, tenantJson)
     if not spawning then
-        return false, "Spawning Error:"
+        return false, config.getParameter("spawningErrors.type")
     end
-
+    if tenant.spawn == "npc" then
+        spawning, _ = pcall(tenant.getVariant, tenant)
+    end
+    if not spawning then 
+        return false, config.getParameter("spawningErrors.species")
+    end
+    return true, tenantJson
 end
 
 function addTenant(tenantJson, shouldDie)
-    tenantArray = tenantArray or {}
     if self.state == "main" and isDeedAlive() then
 
-        --local spawning, output = validateTenant(tenantJson)
-
-        world.callScriptedEntity(self.deedId, "addTenant", tenantJson)
+        local spawning, output = validateTenant(tenantJson)
+        if spawning then 
+            world.callScriptedEntity(self.deedId, "addTenant", tenantJson)
+        else
+            world.callScriptedEntity(self.deedId, "object.sayPortrait", output[1], output[2], {spawn=tenantJson.spawn,type=tenantJson.type, species=tenantJson.species})
+        end
     end
     if shouldDie then
         stagehand.die()

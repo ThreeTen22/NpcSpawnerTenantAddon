@@ -25,12 +25,22 @@ comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
+
+
 comp.set = function(v1, v2) 
     v1, v2 = comp.resolve(v1), comp.resolve(v2)
     if type(v1) ~= "nil" then
         return v1
     end
     return v2
+end
+
+comp["and"] = function(v1, v2)
+    return comp[v1[1]](v1[2], v1[3]) and comp[v2[1]](v2[2], v2[3])
+end
+
+comp["or"] = function(v1, v2)
+    return comp[v1[1]](v1[2], v1[3]) or comp[v2[1]](v2[2], v2[3])
 end
 
 comp.contains = function(v1, v2) 
@@ -124,6 +134,22 @@ function init()
         return default
     end
 
+    self.selectedTenant = function()
+        local item = listManager:getSelectedItem()
+        if not item then return nil end
+        return item.tenant
+    end
+    self.selectedTenantInstanceValue = function(jsonPath, default)
+        local item = listManager:getSelectedItem()
+        if not item then return default end
+        return item.tenant:instanceValue(jsonPath) or default
+    end
+    self.selectedTenantConfigValue = function(jsonPath, default)
+        local item = listManager:getSelectedItem()
+        if not item then return default end
+        return item.tenant:getConfig(jsonPath) or default
+    end
+
     self.drawPortrait = function()
         self.portraitCanvas:clear()
         local center = config.getParameter("portraitCanvas.center")
@@ -210,6 +236,7 @@ function onModifyTenantButtomPressed(id, data)
     if self.getState() == "modifyTenant" then
         return self.setState("selectTenant")
     end
+
     return self.setState("modifyTenant")
 end
 
@@ -294,6 +321,25 @@ function ExportNpcCard(id, data)
     player.setSwapSlotItem(item)
 end
 
+function SetTenantInstanceValue(id, data)
+    id = config.getParameter(id..".fullPath")
+    local tenant = listManager:getSelectedItem().tenant
+    if not tenant then return end
+
+    local checked = widget.getChecked(id) and "checkedValue" or "unCheckedValue"
+    local value = data[checked]
+
+    if value == "jarray" then
+        tenant:setInstanceValue(data.path, jarray())
+    else
+        tenant:setInstanceValue(data.path, value)
+    end
+    util.debugLog("checked and value:  %s   %s", checked, value)
+    util.debugJson(data, true, "data:\n %s" )
+    util.debugJson(tenant.overrides.scriptConfig, true, "jsonValue:\n %s")
+end
+
+
 function RemoveTenant(id, data)
     local npcUuid = self.selectedInstanceValue("tenant.uniqueId")
     local spawn = self.selectedInstanceValue("tenant.spawn")
@@ -309,7 +355,9 @@ function onTenantListItemPressed(id, data)
     end
     local item = listManager.items[id]
     local checkstatus = widget.getChecked(item.toggleButton)
-    
+    if data.clickSound then
+        checkstatus = not checkstatus
+    end
     
     util.each(listManager.items, function(iId, v)
         v.checked = false
@@ -340,7 +388,7 @@ function updateWidgets(state)
     util.each(self.configParam("widgetsToCheck"),  function(widgetName, dataPath)
                     
         local queue = applyDefaults(self.configParam(widgetName.."."..state, {}), self.configParam(widgetName..".default", {}))
-        util.debugJson(queue, "onStageChangeQueue:  %s", 1)
+        
         for k,v in pairs(queue) do
             local args = comp[v[1]](v[2], v[3])
             if widget[k] then
@@ -387,6 +435,6 @@ function hasPath(data, keyList, index, total)
 
 if not util then util = {} end
 
-function util.debugJson(luaValue, format, spacing)
+function util.debugJson(luaValue, spacing, format)
     return self.debug and sb.logInfo(format or "%s", sb.printJson(luaValue, spacing and 1 or 0))
 end

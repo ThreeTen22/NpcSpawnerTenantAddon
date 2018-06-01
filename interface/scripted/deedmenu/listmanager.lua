@@ -35,8 +35,6 @@ function listManager:init(tenants)
     widget.clearListItems(self.listPath)
 
     for i = 1, math.min(#tenants+1, 5) do
-        sb.logInfo("listPath: %s", self.listPath)
-        
         itemId = widget.addListItem(self.listPath)
         
         local tenant = tenants[i] or {}
