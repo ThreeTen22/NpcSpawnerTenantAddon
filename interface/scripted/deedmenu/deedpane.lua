@@ -256,7 +256,7 @@ function ExportNpcCard(id, data)
     item.parameters.description = ""
     item.parameters.tooltipFields.collarNameLabel = "Created By:  "..world.entityName(player.id())
     item.parameters.tooltipFields.objectImage = tenant:getPortrait("full")
-    item.parameters.tooltipFields.subtitle = self.currentType
+    item.parameters.tooltipFields.subtitle = args.type
     
     item.parameters.npcArgs = {
         npcSpecies = args.species,
