@@ -1,4 +1,4 @@
-# Tenantator
+# Tenantator 2000
 Add and modify tenants using capture pods and npc cards created by the NpcSpawner+ Objects or other colony deeds via the provided tool!  
 
 ## To Get:  
