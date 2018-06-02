@@ -3,7 +3,7 @@ require "/scripts/vec2.lua"
 require "/scripts/rect.lua"
 require "/scripts/messageutil.lua"
 require "/interface/scripted/deedmenu/tenantclass.lua"
-require "/interface/scripted/deedmenu/listmanager.lua"
+require "/interface/scripted/deedmenu/listclass.lua"
 storage = storage or {}
 
 comp = {}
@@ -110,7 +110,6 @@ function init()
     self.timers = TimerManager:new()
     self.HandItemName = "npcinjector"
     self.debug = false
-
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
         completeCallback = checkIfAlive,
@@ -118,10 +117,12 @@ function init()
     })
     self.timers:manage(self.paneAliveCooldown)
 
-    listManager:init(config.getParameter("tenants"))
+
+    
+    self.tenantList:init(config.getParameter("tenants"))
 
     self.getSelectedItem = function()
-        return listManager:getSelectedItem()
+        return self.tenantList:getSelectedItem()
     end
 
     self.widgetFunc = function(...)
@@ -157,34 +158,34 @@ function init()
     end
 
     self.hasSelectedListItem = function()
-        return listManager.selectedItemId and true or false
+        return self.tenantList.selectedItemId and true or false
     end
 
-    self.selectedInstanceValue = function(jsonPath, default)
-        local itemId = listManager.selectedItemId
+    self.selectedValue = function(jsonPath, default)
+        local itemId = self.tenantList.selectedItemId
         if itemId then
-            return listManager:itemInstanceValue(itemId, jsonPath, default)
+            return self.tenantList:itemInstanceValue(itemId, jsonPath, default)
         end
         return default
     end
 
     self.selectedTenant = function()
-        local item = listManager:getSelectedItem()
+        local item = self.tenantList:getSelectedItem()
         if not item then return nil end
         return item.tenant
     end
     self.selectedTenantInstanceValue = function(jsonPath, default)
-        local item = listManager:getSelectedItem()
+        local item = self.tenantList:getSelectedItem()
         if not item then return default end
         return item.tenant:instanceValue(jsonPath)
     end
     self.selectedTenantOverrideValue = function(jsonPath, default)
-        local item = listManager:getSelectedItem()
+        local item = self.tenantList:getSelectedItem()
         if not item then return default end
         return sb.jsonQuery(item.tenant.overrides, jsonPath)
     end
     self.selectedTenantConfigValue = function(jsonPath, default)
-        local item = listManager:getSelectedItem()
+        local item = self.tenantList:getSelectedItem()
         if not item then return default end
         return item.tenant:getConfig(jsonPath)
     end
@@ -226,8 +227,8 @@ function init()
         self.portraitCanvas:clear()
     end
 
-    self.listManagerInit = function()
-        return listManager:init(config.getParameter("tenants"))
+    self.self.tenantListInit = function()
+        return self.tenantList:init(config.getParameter("tenants"))
     end
 
     widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
@@ -364,7 +365,7 @@ end
 
 function SetTenantInstanceValue(id, data)
     id = config.getParameter(id..".fullPath")
-    local tenant = listManager:getSelectedItem().tenant
+    local tenant = self.tenantList:getSelectedItem().tenant
     if not tenant then return end
 
     local checked = widget.getChecked(id) and "checkedValue" or "unCheckedValue"
@@ -389,8 +390,8 @@ end
 
 
 function RemoveTenant(id, data)
-    local npcUuid = self.selectedInstanceValue("tenant.uniqueId")
-    local spawn = self.selectedInstanceValue("tenant.spawn")
+    local npcUuid = self.selectedValue("tenant.uniqueId")
+    local spawn = self.selectedValue("tenant.spawn")
 
     world.sendEntityMessage(pane.sourceEntity(), "removeTenant", npcUuid, spawn, true)
 end
@@ -401,28 +402,28 @@ function onTenantListItemPressed(id, data)
     if data.clickSound then 
         widget.playSound(data.clickSound)
     end
-    local item = listManager.items[id]
+    local item = self.tenantList.items[id]
     local checkstatus = widget.getChecked(item.toggleButton)
     if data.clickSound then
         checkstatus = not checkstatus
     end
     
-    util.each(listManager.items, function(iId, v)
+    util.each(self.tenantList.items, function(iId, v)
         v.checked = false
     end)
     item.checked = checkstatus
     
-    util.each(listManager.items, function(iId, v)
+    util.each(self.tenantList.items, function(iId, v)
         widget.setChecked(v.toggleButton, v.checked)
     end)
 
-    local checkCount = util.filter(listManager.itemIdByIndex, function(itemId)
-        return listManager.items[itemId].checked == true
+    local checkCount = util.filter(self.tenantList.itemIdByIndex, function(itemId)
+        return self.tenantList.items[itemId].checked == true
     end)
 
-    listManager:setSelectedItem(checkCount[1])
+    self.tenantList:setSelectedItem(checkCount[1])
 
-    if not listManager:getSelectedItem() then
+    if not self.tenantList:getSelectedItem() then
         self.setState("selectNone")
     elseif item.isCreateNewItem then
         self.setState("selectNew")

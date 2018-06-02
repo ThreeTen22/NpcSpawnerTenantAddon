@@ -77,7 +77,7 @@ function Tenant:setInstanceValue(jsonPath, value)
         self[jsonPath] = value
         return
     end
-    jsonSetPath(self.overrides, jsonPath, value)
+    jsonSetPathExplicit(self.overrides, jsonPath, value)
 end
 
 function Tenant:toJson()
@@ -91,7 +91,7 @@ function Tenant:toJson()
     }
 end
 
-function jsonSetPath(t, jsonPath, value)
+function jsonSetPathExplicit(t, jsonPath, value)
 
     local argList = util.filter(util.split(jsonPath, "."), function(v) return v ~= "" end)
 
