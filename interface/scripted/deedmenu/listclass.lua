@@ -8,28 +8,58 @@ List = {
         toggleButton = "background"
     }
 }
-List.__index = List
 
-function List.new(...)
-    local self = {}
-    setmetatable(self, List)
-    self:init(...)
-    return self
+function List:new(...)
+    local list = {}
+    --util.debugLog("list new %s", {...})
+    setmetatable(list, extend(self))
+    list:init(...)
+    return list
 end
 
-function List:init(tenants)
+function List:init(listid, listPath)
+    self.items = {}
+    self.itemIdByIndex = {}
+    self.selectedItemId = -1
+    self.listId = lisdId
+    self.listPath = listPath
+end
+
+function List:selectedItem()
+    return self.items[self.selectedItemId]
+end
+
+function List:setSelectedItem(id)
+    if not id then id = -1 end
+    self.selectedItemId = id
+end
+
+function List:itemInstanceValue(id, jsonPath, default)
+
+end
+
+function List:Each(func)
+    for k,v in pairs(self.item) do
+        if func(k,v) then
+            return v,k
+        end
+    end
+end
+TenantList = List:new()
+
+function TenantList:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = -1
     self.listId = "tenantList"
     self.listPath = "listLayout.tenantList"
-
+    self.listLayout = "layouts.listItemTitle"
     if #tenants == 0 then
         widget.setVisible(self.listPath, false)
         return
     end
-
-
+    util.setDebug(true)
+    --util.debugLog("list init:  %s", self.HandItemName)
     widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
     local itemId = nil
     widget.clearListItems(self.listPath)
@@ -58,11 +88,10 @@ function List:init(tenants)
         widget.setData(items.portraitSlot, {itemId = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
 
         self.itemIdByIndex[i] = itemId
-
     end
  
     
-    local canvasParams = config.getParameter("layouts.listItemTitle")
+    local canvasParams = config.getParameter(self.listLayout)
     util.each(self.itemIdByIndex, 
     function(i, k)
         local v = self.items[k]
@@ -84,17 +113,8 @@ function List:init(tenants)
     end)
 end
 
-function List:setSelectedItem(id)
-    if not id then id = -1 end
-    self.selectedItemId = id
-end
 
-function List:getSelectedItem()
-    return self.items[self.selectedItemId]
-end
-
-function List:itemInstanceValue(id, jsonPath, default)
-    
+function TenantList:itemInstanceValue(id, jsonPath, default)
     local item = self.items[id]
 
     if not item then return default end

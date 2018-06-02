@@ -55,6 +55,28 @@ function init()
     --coroutine.resume(self.init)
 end
 
+function maxBeamoutTime(entityUuIds)
+    if not entityUuIds then
+        entityUuIds = {}
+        for i,v in ipairs(getTenants()) do
+            entityUuIds[i] = v.uniqueId
+        end
+    end
+    local beamout = 0
+    for i,v in ipairs(entityUuIds) do
+        local id = world.loadUniqueEntity(v)
+        if id > 0 then
+            local list = entityFunc(id, "status.activeUniqueStatusEffectSummary")
+            for li, lv in ipairs(list) do 
+                if lv[1]:find("beamout", 1, true) then
+                    beamout = math.max(beamout, lv[2])
+                    break
+                end
+            end
+        end
+    end
+    return beamout
+end
 function initCoroutine()
     if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid then
 
@@ -214,7 +236,7 @@ function setTenantInstanceValue(index, tenant, jsonPath, value)
     if tenantId ~= 0 then
         entityFunc(tenantId, "status.addEphemeralEffect", "beamoutanddie")
     end
-    self.respawnTenantsDelay:start()
+    self.respawnTenantsDelay:start(maxBeamoutTime()+0.2)
 end
 
 function respawnTenants()
@@ -346,21 +368,7 @@ function addTenant(tenantJson, shouldDie)
     end
 end
 
-function logENV()
-    local indx = 1
-    local tbl = {}
-    for i,v in pairs(_ENV) do
-      if type(v) == "function" then
-        indx, tbl[indx] = indx+1, sb.print(i)
-      elseif type(v) == "table" then
-        for j,k in pairs(v) do
-          --indx, tbl[indx] = indx+1, string.format("%s.%s (%s)", sb.print(i), sb.print(j), type(k))
-        end
-      end
-    end
-    table.sort(tbl)
-    sb.logInfo(table.concat(tbl, "\n"))
-end
+
 
 function debugFunction(func, ...)
     util.setDebug(true)

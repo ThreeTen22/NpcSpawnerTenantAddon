@@ -5,10 +5,10 @@ Tenant.__index = Tenant
 
 
 function Tenant.new(...)
-    local self = {}
-    setmetatable(self, Tenant)
-    self:init(...)
-    return self
+    local tenant = {}
+    setmetatable(tenant, Tenant)
+    tenant:init(...)
+    return tenant
 end
 
 function Tenant.fromConfig(jsonIndex)

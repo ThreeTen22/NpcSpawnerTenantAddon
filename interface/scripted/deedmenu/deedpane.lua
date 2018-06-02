@@ -25,17 +25,7 @@ comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
 comp.le = function(v1, v2) return comp.resolve(v1) <= comp.resolve(v2) end
---[[
-comp.list -
-if v2 = null, return true if 
-    v1: nil --- v2: null
-    v1: not a table --- v2: null
-(same as using "ne", so use that).  
-if v2 = boolean, return true if  
-    v1: exists--- v2: true
-if v2 = number, return true if
-    v1 exists, is a table, and #v1 == v2
---]]
+
 comp.table = function(v1, v2, v3)
 
     v2 = comp.resolve(v2)
@@ -91,10 +81,6 @@ comp.drawText = function(canvas, text, args)
     args = comp.resolve(args)
     return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) 
 end 
-
-function comp.result(fullPath, state, key) 
-
-end
 --[[
     imageSize   =   20
     1.0              y
@@ -106,23 +92,29 @@ function debugFunction(func, ...)
     util.setDebug(false)
 end
 
+
 function init()
+
     self.timers = TimerManager:new()
     self.HandItemName = "npcinjector"
-    self.debug = false
+    self.debug = true
+    self.configParam = config.getParameter
+    self.selectedOption = widget.getSelectedOption
+    self.tenantFromNpcCard = tenantFromNpcCard
+    self.tenantFromCapturePod = tenantFromCapturePod
+    self.tenantList = TenantList
+    self.tenantList:init(self.configParam("tenants"))
+
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
         completeCallback = checkIfAlive,
         loop = false
     })
     self.timers:manage(self.paneAliveCooldown)
-
-
     
-    self.tenantList:init(config.getParameter("tenants"))
-
-    self.getSelectedItem = function()
-        return self.tenantList:getSelectedItem()
+    --self.tenantList:init(self.configParam(""))
+    self.selectedItem = function()
+        return self.tenantList:selectedItem()
     end
 
     self.widgetFunc = function(...)
@@ -134,15 +126,12 @@ function init()
         end
     end
 
-    self.configParam = config.getParameter
-
-    self.selectedOption = widget.getSelectedOption
-    self.tenantFromNpcCard = tenantFromNpcCard
-    self.tenantFromCapturePod = tenantFromCapturePod
+  
 
     self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
     self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
 
+   -- util.debugLog("%s", self.configParam("tenants"))
     
     self.getState = function()
         return self.state
@@ -170,22 +159,22 @@ function init()
     end
 
     self.selectedTenant = function()
-        local item = self.tenantList:getSelectedItem()
+        local item = self.tenantList:selectedItem()
         if not item then return nil end
         return item.tenant
     end
     self.selectedTenantInstanceValue = function(jsonPath, default)
-        local item = self.tenantList:getSelectedItem()
+        local item = self.tenantList:selectedItem()
         if not item then return default end
         return item.tenant:instanceValue(jsonPath)
     end
     self.selectedTenantOverrideValue = function(jsonPath, default)
-        local item = self.tenantList:getSelectedItem()
+        local item = self.tenantList:selectedItem()
         if not item then return default end
         return sb.jsonQuery(item.tenant.overrides, jsonPath)
     end
     self.selectedTenantConfigValue = function(jsonPath, default)
-        local item = self.tenantList:getSelectedItem()
+        local item = self.tenantList:selectedItem()
         if not item then return default end
         return item.tenant:getConfig(jsonPath)
     end
@@ -193,7 +182,7 @@ function init()
     self.drawPortrait = function()
         self.portraitCanvas:clear()
         local center = config.getParameter("portraitCanvas.center")
-        local item = self.getSelectedItem()
+        local item = self.selectedItem()
         local drawParam
         if item then
             if item.tenant then
@@ -223,14 +212,6 @@ function init()
         end)
     end
 
-    self.clearPortrait = function()
-        self.portraitCanvas:clear()
-    end
-
-    self.self.tenantListInit = function()
-        return self.tenantList:init(config.getParameter("tenants"))
-    end
-
     widget.setItemSlotItem("detailArea.importItemSlot", config.getParameter("npcItem"))
 
     self.setState("selectNone")
@@ -240,10 +221,7 @@ function init()
         config.getParameter("deedId"), 
         widget.getData("detailArea.requireFilledBackgroundButton")
     ))
-    self.tenantFromNpcCard = tenantFromNpcCard
-    self.tenantFromCapturePod = tenantFromCapturePod
 
-    --DEBUG:
 end
 
 function update(dt)
@@ -339,7 +317,7 @@ end
 
 function ExportNpcCard(id, data)
     local item = config.getParameter("templateCard")
-    local tenant = self.getSelectedItem().tenant
+    local tenant = self.selectedItem().tenant
     local args = tenant:toJson()
 
 
@@ -365,7 +343,7 @@ end
 
 function SetTenantInstanceValue(id, data)
     id = config.getParameter(id..".fullPath")
-    local tenant = self.tenantList:getSelectedItem().tenant
+    local tenant = self.tenantList:selectedItem().tenant
     if not tenant then return end
 
     local checked = widget.getChecked(id) and "checkedValue" or "unCheckedValue"
@@ -423,7 +401,7 @@ function onTenantListItemPressed(id, data)
 
     self.tenantList:setSelectedItem(checkCount[1])
 
-    if not self.tenantList:getSelectedItem() then
+    if not self.tenantList:selectedItem() then
         self.setState("selectNone")
     elseif item.isCreateNewItem then
         self.setState("selectNew")
@@ -465,6 +443,24 @@ end
 
 function delayStagehandDeath()
  
+end
+
+
+function logENV()
+    local indx = 1
+    local tbl = {}
+    for i,v in pairs(self) do
+      if type(v) == "function" then
+        indx, tbl[indx] = indx+1, sb.print(i)
+      elseif type(v) == "table" then
+        for j,k in pairs(v) do
+          indx, tbl[indx] = indx+1, string.format("%s.%s (%s)", sb.print(i), sb.print(j), type(k))
+        end
+      end
+      indx, tbl[indx] = indx+1, sb.print(i.." ("..type(v)..")")
+    end
+    table.sort(tbl)
+    sb.logInfo(table.concat(tbl, "\n"))
 end
 
 function hasPath(data, keyList, index, total)
