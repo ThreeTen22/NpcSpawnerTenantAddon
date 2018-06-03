@@ -3,18 +3,19 @@ require "/interface/scripted/deedmenu/tenantclass.lua"
 
 List = {
     template = {
-        canvas = "portraitCanvas",
+        canvas = "canvas",
         portraitSlot = "portraitSlot",
-        toggleButton = "background"
+        toggleButton = "toggleItem"
     }
 }
+List.__index = List
 
-function List:new(...)
-    local list = {}
+function List.new(...)
+    local self = {}
     --util.debugLog("list new %s", {...})
-    setmetatable(list, extend(self))
-    list:init(...)
-    return list
+    setmetatable(self, List)
+    self:init(...)
+    return self
 end
 
 function List:init(listid, listPath)
@@ -45,7 +46,16 @@ function List:Each(func)
         end
     end
 end
-TenantList = List:new()
+TenantList = setmetatable({}, List)
+TenantList.__index = TenantList
+
+function TenantList.new(...)
+    local self = {}
+    --util.debugLog("list new %s", {...})
+    setmetatable(self, TenantList)
+    self:init(...)
+    return self
+end
 
 function TenantList:init(tenants)
     self.items = {}
@@ -84,8 +94,8 @@ function TenantList:init(tenants)
             items.isCreateNewItem = true
         end
         self.items[itemId] = items
-        widget.setData(items.toggleButton, {itemId = items.itemId})
-        widget.setData(items.portraitSlot, {itemId = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
+        widget.setData(items.toggleButton, {id = items.itemId})
+        widget.setData(items.portraitSlot, {id = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
 
         self.itemIdByIndex[i] = itemId
     end
