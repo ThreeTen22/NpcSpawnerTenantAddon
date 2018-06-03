@@ -61,6 +61,7 @@ function TenantList:init(tenants)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = -1
+    self.listSize = math.min(#tenants+1, 5) 
     self.listId = "tenantList"
     self.listPath = "listLayout.tenantList"
     self.listLayout = "layouts.listItemTitle"

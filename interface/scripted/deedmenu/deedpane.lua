@@ -147,7 +147,7 @@ function init()
     end
 
     self.hasSelectedListItem = function()
-        return self.tenantList.selectedItemId and true or false
+        return self.tenantList.selectedItemId ~= -1 or false
     end
 
     self.selectedValue = function(jsonPath, default)
@@ -221,13 +221,16 @@ function init()
         config.getParameter("deedId"), 
         widget.getData("detailArea.requireFilledBackgroundButton")
     ))
-
+    if config.getParameter("tenantCount") >= 5 then
+        checkPlayerInteraction = function() end
+    end
 end
 
 function update(dt)
-    --checkPlayerInteraction()
     promises:update(dt)
     self.timers:update(dt)
+    checkPlayerInteraction()
+    
 end
 
 function dismissed()
@@ -241,8 +244,18 @@ end
 function checkPlayerInteraction()
     self.previousItem = self.currentItem
     self.currentItem = player.swapSlotItem()
-    if self.currentItem and (self.currentItem ~= self.previousItem)  and hasPath(self.currentItem, {"parameters", "npcArgs"}) and self.getState() == "selectNone" then
+    if player.swapSlotItem() and (self.tenantList.listSize <= 5)
+        and (self.currentItem ~= self.previousItem)  
+        and (hasPath(self.currentItem, {"parameters", "npcArgs"}) 
+            or 
+            hasPath(self.currentItem, {"parameters", "pets", 1})) 
+            
+        and self.getState() == "selectNone" then
         self.setState("selectNew")
+        return
+    end
+    if (not player.swapSlotItem()) and (self.getState() == "selectNew") and (not self.selectedItem()) then
+        self.setState("selectNone")
     end
 end
 
