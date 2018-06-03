@@ -8,7 +8,7 @@ NpcInject = WeaponAbility:new()
 function NpcInject:init()
   --if not storage then storage = {} end
 
-  debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
   util.setDebug(false)
   --util.debugLog("Ininit")
   --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
@@ -41,7 +41,7 @@ function NpcInject:init()
     deedpane.tenants = tenants
     deedpane.tenantPortraits = tenantPortraits
     deedpane.configs = typeConfig
-
+    deedpane.tenantCount = #tenants
     player.interact("ScriptPane", deedpane, id)
    
     return true

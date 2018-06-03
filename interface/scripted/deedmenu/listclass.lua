@@ -1,35 +1,76 @@
 require "/scripts/util.lua"
 require "/interface/scripted/deedmenu/tenantclass.lua"
 
-listManager = {
+List = {
     template = {
-        canvas = "portraitCanvas",
+        canvas = "canvas",
         portraitSlot = "portraitSlot",
-        toggleButton = "background"
+        toggleButton = "toggleItem"
     }
 }
-listManager.__index = listManager
+List.__index = List
 
-function listManager.new(...)
+function List.new(...)
     local self = {}
-    setmetatable(self, listManager)
+    --util.debugLog("list new %s", {...})
+    setmetatable(self, List)
     self:init(...)
     return self
 end
 
-function listManager:init(tenants)
+function List:init(listid, listPath)
     self.items = {}
     self.itemIdByIndex = {}
     self.selectedItemId = -1
+    self.listId = lisdId
+    self.listPath = listPath
+end
+
+function List:selectedItem()
+    return self.items[self.selectedItemId]
+end
+
+function List:setSelectedItem(id)
+    if not id then id = -1 end
+    self.selectedItemId = id
+end
+
+function List:itemInstanceValue(id, jsonPath, default)
+
+end
+
+function List:Each(func)
+    for k,v in pairs(self.item) do
+        if func(k,v) then
+            return v,k
+        end
+    end
+end
+TenantList = setmetatable({}, List)
+TenantList.__index = TenantList
+
+function TenantList.new(...)
+    local self = {}
+    --util.debugLog("list new %s", {...})
+    setmetatable(self, TenantList)
+    self:init(...)
+    return self
+end
+
+function TenantList:init(tenants)
+    self.items = {}
+    self.itemIdByIndex = {}
+    self.selectedItemId = -1
+    self.listSize = math.min(#tenants+1, 5) 
     self.listId = "tenantList"
     self.listPath = "listLayout.tenantList"
-
+    self.listLayout = "layouts.listItemTitle"
     if #tenants == 0 then
         widget.setVisible(self.listPath, false)
         return
     end
-
-
+    util.setDebug(true)
+    --util.debugLog("list init:  %s", self.HandItemName)
     widget.registerMemberCallback(self.listPath, "onTenantListItemPressed", onTenantListItemPressed)
     local itemId = nil
     widget.clearListItems(self.listPath)
@@ -54,29 +95,27 @@ function listManager:init(tenants)
             items.isCreateNewItem = true
         end
         self.items[itemId] = items
-        widget.setData(items.toggleButton, {itemId = items.itemId})
-        widget.setData(items.portraitSlot, {itemId = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
+        widget.setData(items.toggleButton, {id = items.itemId})
+        widget.setData(items.portraitSlot, {id = items.itemId, clickSound="/sfx/interface/clickon_success.ogg"})
 
         self.itemIdByIndex[i] = itemId
-
     end
  
-    local itemTextPosition = {30, 9} 
-    local textParams = {position = itemTextPosition, horizontalAnchor="left", verticalAnchor="mid"}
-    local canvasParams = config.getParameter("layouts.listItemTitle")
+    
+    local canvasParams = config.getParameter(self.listLayout)
     util.each(self.itemIdByIndex, 
     function(i, k)
         local v = self.items[k]
         local iconItem = config.getParameter("npcItem")
         v.canvas:clear()
         if v.isCreateNewItem then
-            v.canvas:drawText("Add Tenant",textParams , 8)
+            v.canvas:drawText("Add Tenant",canvasParams.textPositioning, canvasParams.fontSize)
             widget.setItemSlotItem(v.portraitSlot, iconItem)
             return
         end
         if v.tenant.spawn == "npc" then
             v.canvas:drawText(v.tenant.overrides.identity.name, canvasParams.textPositioning, canvasParams.fontSize)
-            iconItem.parameters.inventoryIcon = v.tenant:getPortrait("head")
+            iconItem.parameters.inventoryIcon = v.tenant:getPortrait("bust")
         else
             v.canvas:drawText(v.tenant.type, canvasParams.textPositioning, canvasParams.fontSize)
             iconItem.parameters.inventoryIcon = v.tenant:getPortrait("full")
@@ -85,17 +124,8 @@ function listManager:init(tenants)
     end)
 end
 
-function listManager:setSelectedItem(id)
-    if not id then id = -1 end
-    self.selectedItemId = id
-end
 
-function listManager:getSelectedItem()
-    return self.items[self.selectedItemId]
-end
-
-function listManager:itemInstanceValue(id, jsonPath, default)
-    
+function TenantList:itemInstanceValue(id, jsonPath, default)
     local item = self.items[id]
 
     if not item then return default end
