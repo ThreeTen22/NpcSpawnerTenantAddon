@@ -11,10 +11,10 @@ comp = {}
 comp.resolve = function(v) 
     local vType = type(v)
     if vType == "table" and v.func then
-        for i,item in pairs(v.args) do
-            v.args[i] = comp.resolve(item)
+        for i,item in pairs(v.func[2]) do
+            item = comp.resolve(item)
         end
-        return self[v.func](table.unpack(v.args))
+        return self[v.func[1]](table.unpack(v.func[2]))
     end
     return v
 end
@@ -96,14 +96,14 @@ end
 function init()
 
     self.timers = TimerManager:new()
-    self.HandItemName = "npcinjector"
+    self.swapSlotItem = nil
     self.debug = true
     self.configParam = config.getParameter
     self.selectedOption = widget.getSelectedOption
     self.tenantFromNpcCard = tenantFromNpcCard
     self.tenantFromCapturePod = tenantFromCapturePod
-    self.tenantList = TenantList
-    self.tenantList:init(self.configParam("tenants"))
+    --self.tenantList = TenantList
+    self.tenantList = TenantList.new(self.configParam("tenants"))
 
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
         delay = 0.5,
@@ -225,6 +225,7 @@ function init()
 end
 
 function update(dt)
+    --checkPlayerInteraction()
     promises:update(dt)
     self.timers:update(dt)
 end
@@ -237,6 +238,13 @@ function uninit()
 
 end
 
+function checkPlayerInteraction()
+    self.previousItem = self.currentItem
+    self.currentItem = player.swapSlotItem()
+    if self.currentItem and (self.currentItem ~= self.previousItem)  and hasPath(self.currentItem, {"parameters", "npcArgs"}) and self.getState() == "selectNone" then
+        self.setState("selectNew")
+    end
+end
 
 function SetDeedConfig(id, data)
     id = config.getParameter(id..".fullPath")
@@ -376,7 +384,7 @@ end
 
 
 function onTenantListItemPressed(id, data)
-    id = data.itemId
+    id = data.id
     if data.clickSound then 
         widget.playSound(data.clickSound)
     end
@@ -423,11 +431,10 @@ function updateWidgets(state)
             if widget[k] then
                 --util.debugJson(v, "v:  %s", 1)
                 if type(args) == "table" then
-                    --util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
+
                     widget[k](dataPath, table.unpack(args))
                 else
-                    --util.debugLog("\ndatapath/args: %s %s %s",k, dataPath, args)
-                    --return false
+    
                     widget[k](dataPath, args)
                 end
             end
