@@ -334,14 +334,14 @@ function validateTenant(tenantJson)
         end
 
 
-        dialog = dialogInjection(tenant)
+        --dialog = dialogInjection(tenant)
 
         --util.debugLog("merged dialog: \n%s", sb.printJson(dialog))
         tenant:setInstanceValue("dropPools", jarray())
         tenant:setInstanceValue("damageTeam", nil)
         tenant:setInstanceValue("damageTeamType", nil)
-        tenant:setInstanceValue("scriptConfig.behavior", "villageguard")
-        tenant:setInstanceValue("scriptConfig.dialog", dialog)
+        --tenant:setInstanceValue("scriptConfig.behavior", "villageguard")
+        --tenant:setInstanceValue("scriptConfig.dialog", dialog)
         
         --now check to see if there is proper dialog, if not, add dialog.
     else
