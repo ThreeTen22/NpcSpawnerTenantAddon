@@ -457,6 +457,23 @@ function updateWidgets(state)
     self.drawPortrait()
 end
 
+function hasPath(data, keyList, index, total)
+    if not index then
+        index = 1
+        total = math.max(#keyList, 1)
+    end
+    if index > total then
+      return true
+    else
+      local firstKey = keyList[index]
+      if data[firstKey] ~= nil then
+        return hasPath(data[firstKey], keyList, index+1, total)
+      else
+        return false
+      end
+    end
+end
+
 --[[
 function logENV()
     local indx = 1
@@ -473,23 +490,6 @@ function logENV()
     end
     table.sort(tbl)
     sb.logInfo(table.concat(tbl, "\n"))
-end
-
-function hasPath(data, keyList, index, total)
-    if not index then
-        index = 1
-        total = math.max(#keyList, 1)
-    end
-    if index > total then
-      return true
-    else
-      local firstKey = keyList[index]
-      if data[firstKey] ~= nil then
-        return hasPath(data[firstKey], keyList, index+1, total)
-      else
-        return false
-      end
-    end
 end
 
 if not util then util = {} end
