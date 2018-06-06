@@ -341,6 +341,14 @@ function ExportNpcCard(id, data)
     local tenant = self.selectedItem().tenant
     local args = tenant:toJson()
 
+    args.level = args.level or (world.getProperty("ship.level") and 1) or world.threatLevel()
+    
+    if not args.overrides.scriptConfig then
+        args.overrides.scriptConfig = {}
+    end
+    if not args.overrides.items then
+        args.overrides.items = {}
+    end
 
     item.parameters.shortdescription = args.overrides.identity.name
     item.parameters.inventoryIcon = tenant:getPortrait("bust")
@@ -356,6 +364,8 @@ function ExportNpcCard(id, data)
         npcLevel = args.level,
         npcParam = args.overrides
     }
+
+
     if player.swapSlotItem() then 
         player.giveItem(player.swapSlotItem()) 
     end
