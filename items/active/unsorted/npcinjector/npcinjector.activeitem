@@ -18,7 +18,7 @@
   "animationScripts" : ["/items/active/effects/chain.lua"],
 
   "baseOffset" : [0.65, 0.375],
-  "muzzleOffset" : [0.9, 0.25],
+  "muzzleOffset" : [1.0, 0.25],
 
   "scripts" : ["/items/active/weapons/ranged/gun.lua"],
   "retainScriptStorageInItem" : true,
@@ -70,7 +70,7 @@
       "fire" : {
         "armRotation" : 0,
         "weaponRotation" : 0,
-        
+
         "twoHanded" : true,
         "allowRotate" : false,
         "allowFlip" : false
