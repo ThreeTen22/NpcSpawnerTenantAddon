@@ -150,14 +150,6 @@ function init()
         return self.tenantList.selectedItemId ~= -1 or false
     end
 
-    self.selectedValue = function(jsonPath, default)
-        local itemId = self.tenantList.selectedItemId
-        if itemId then
-            return self.tenantList:itemInstanceValue(itemId, jsonPath, default)
-        end
-        return default
-    end
-
     self.selectedTenant = function()
         local item = self.tenantList:selectedItem()
         if not item then return nil end
@@ -177,6 +169,15 @@ function init()
         local item = self.tenantList:selectedItem()
         if not item then return default end
         return item.tenant:getConfig(jsonPath)
+    end
+
+    
+    self.selectedValue = function(jsonPath, default)
+        local itemId = self.tenantList.selectedItemId
+        if itemId then
+            return self.tenantList:itemInstanceValue(itemId, jsonPath, default)
+        end
+        return default
     end
 
     self.drawPortrait = function()

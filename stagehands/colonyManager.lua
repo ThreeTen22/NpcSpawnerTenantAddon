@@ -230,13 +230,16 @@ function setTenantInstanceValue(index, tenant, jsonPath, value)
     local tenants = getTenants()
     local merged = sb.jsonMerge(tenants[index] or {}, tenant)
     tenants[index] = merged
-    if value == "jarray" then value = jarray() end
-    jsonSetPathExplicit(tenants[index].overrides, jsonPath, value) 
-    local tenantId = world.loadUniqueEntity(tenants[index].uniqueId)
-    if tenantId ~= 0 then
-        entityFunc(tenantId, "status.addEphemeralEffect", "beamoutanddie")
+    if value == "jarray" then 
+        value = jarray() 
     end
-    self.respawnTenantsDelay:start(maxBeamoutTime()+0.2)
+    jsonSetPathExplicit(tenants[index].overrides, jsonPath, value) 
+    local tenantId = tenants[index].uniqueId and world.loadUniqueEntity(tenants[index].uniqueId) or 0
+    if tenantId ~= 0 then
+        entityFunc(tenantId, "recruitable.beamOut")
+        tenants[index].uniqueId = nil
+    end
+    self.respawnTenantsDelay:start(maxBeamoutTime()+0.8)
 end
 
 function respawnTenants()
@@ -261,7 +264,7 @@ function removeTenant(tenantUuid, spawn, shouldDie)
         table.sort(tenants, function(i,j) 
             return i.spawn > j.spawn
         end)
-
+        
         local entityId = world.loadUniqueEntity(tenantUuid)
         --util.debugLog(sb.printJson(v or "nil"))
         if entityId ~= 0 then
