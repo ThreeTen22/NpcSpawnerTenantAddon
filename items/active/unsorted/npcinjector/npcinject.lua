@@ -172,7 +172,7 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
   self.weapon:setStance(self.stances.absorb)
   animator.playSound("start")
   animator.playSound("loop", -1)
-  animator.setGlobalTag("absorbed", string.format("%s", 3))
+  animator.setGlobalTag("absorbed", string.format("%s", 1))
 
   local spawnerPos = {0, 0}
 
