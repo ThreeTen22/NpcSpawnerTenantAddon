@@ -457,15 +457,7 @@ function updateWidgets(state)
     self.drawPortrait()
 end
 
-function paneAliveReminder()
-    
-end
-
-function delayStagehandDeath()
- 
-end
-
-
+--[[
 function logENV()
     local indx = 1
     local tbl = {}
@@ -498,10 +490,11 @@ function hasPath(data, keyList, index, total)
         return false
       end
     end
-  end
+end
 
 if not util then util = {} end
 
 function util.debugJson(luaValue, spacing, format)
     return self.debug and sb.logInfo(format or "%s", sb.printJson(luaValue, spacing and 1 or 0))
 end
+]]
