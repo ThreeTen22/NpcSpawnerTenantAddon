@@ -11,15 +11,6 @@
           "offset" : [0, 0],
           "transformationGroups" : ["weapon"]
         }
-      },
-      "lit" : {
-        "properties" : {
-          "centered" : true,
-          "image" : "<partImage>:<absorbed>",
-          "offset" : [0, 0],
-          "transformationGroups" : ["weapon"],
-          "fullbright" : true
-        }
       }
     }
   },
