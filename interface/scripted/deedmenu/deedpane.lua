@@ -82,10 +82,6 @@ comp.drawText = function(canvas, text, args)
     args = comp.resolve(args)
     return canvas:drawText(comp.resolve(text), args.textPositioning, args.fontSize, args.fontColor) 
 end 
---[[
-    imageSize   =   20
-    1.0              y
-]]
 
 function debugFunction(func, ...)
     util.setDebug(true)
@@ -95,7 +91,6 @@ end
 
 
 function init()
-
     self.timers = TimerManager:new()
     self.swapSlotItem = nil
     self.debug = true
@@ -103,7 +98,6 @@ function init()
     self.selectedOption = widget.getSelectedOption
     self.tenantFromNpcCard = tenantFromNpcCard
     self.tenantFromCapturePod = tenantFromCapturePod
-    --self.tenantList = TenantList
     self.tenantList = TenantList.new(self.configParam("tenants"))
 
     self.paneAliveCooldown = Timer:new("paneAliveCooldown", {
@@ -113,7 +107,6 @@ function init()
     })
     self.timers:manage(self.paneAliveCooldown)
     
-    --self.tenantList:init(self.configParam(""))
     self.selectedItem = function()
         return self.tenantList:selectedItem()
     end
@@ -127,12 +120,8 @@ function init()
         end
     end
 
-  
-
     self.detailCanvas = widget.bindCanvas("detailArea.detailCanvas")
     self.portraitCanvas = widget.bindCanvas("detailArea.portraitCanvas")
-
-   -- util.debugLog("%s", self.configParam("tenants"))
     
     self.getState = function()
         return self.state
@@ -171,8 +160,6 @@ function init()
         if not item then return default end
         return item.tenant:getConfig(jsonPath)
     end
-
-    
     self.selectedValue = function(jsonPath, default)
         local itemId = self.tenantList.selectedItemId
         if itemId then
@@ -180,7 +167,6 @@ function init()
         end
         return default
     end
-
     self.drawPortrait = function()
         self.portraitCanvas:clear()
         local center = config.getParameter("portraitCanvas.center")
@@ -204,7 +190,6 @@ function init()
             end
         end
     end
-
     self.drawDetails = function()
         self.detailCanvas:clear()
         local actions = config.getParameter("detailCanvas.actions."..self.getState(), {})
@@ -326,9 +311,6 @@ function tenantFromNpcCard(item)
     if type(item) == "string" then
         item = widget.itemSlotItem(item)
     end
-
-    --local npcArgs = item.parameters.npcArgs
-
     if hasPath(item.parameters.npcArgs, {"npcParam", "scriptConfig", "personality","storedOverrides"}) then
         item.parameters.npcArgs.npcParam.scriptConfig.personality.storedOverrides = nil
     end
@@ -366,8 +348,7 @@ function ExportNpcCard(id, data)
     item.parameters.description = ""
     item.parameters.tooltipFields.collarNameLabel = "Created By:  "..world.entityName(player.id())
     item.parameters.tooltipFields.objectImage = tenant:getPortrait("full")
-    item.parameters.tooltipFields.subtitle = args.type
-    
+    item.parameters.tooltipFields.subtitle = args.type 
     item.parameters.npcArgs = {
         npcSpecies = args.species,
         npcSeed = args.seed,
@@ -375,31 +356,25 @@ function ExportNpcCard(id, data)
         npcLevel = args.level,
         npcParam = args.overrides
     }
-
-
     if player.swapSlotItem() then 
         player.giveItem(player.swapSlotItem()) 
     end
     player.setSwapSlotItem(item)
-
-    --return RemoveTenant(id, data)
-
 end
 
 function SetTenantInstanceValue(id, data)
     id = config.getParameter(id..".fullPath")
     local tenant = self.tenantList:selectedItem().tenant
-    if not tenant then return end
-
+    if not tenant then 
+        return 
+    end
     local checked = widget.getChecked(id) and "checkedValue" or "unCheckedValue"
     local value = data[checked]
-
     if value == "jarray" then
         tenant:setInstanceValue(data.path, jarray())
     else
         tenant:setInstanceValue(data.path, value)
     end
-
     widget.setButtonEnabled(id, false)
     promises:add(world.sendEntityMessage(pane.sourceEntity(), "setTenantInstanceValue", tenant.jsonIndex+1, tenant.overrides, data.path, value),
     function()
@@ -457,9 +432,7 @@ end
 
 function updateWidgets(state)
     state = state or self.getState()
-
-    util.each(self.configParam("widgetsToCheck"),  function(widgetName, dataPath)
-                    
+    util.each(self.configParam("widgetsToCheck"),  function(widgetName, dataPath)                
         local queue = applyDefaults(self.configParam(widgetName.."."..state, {}), self.configParam(widgetName..".default", {}))
         
         for k,v in pairs(queue) do
