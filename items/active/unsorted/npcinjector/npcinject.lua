@@ -6,12 +6,7 @@ require "/scripts/util.lua"
 NpcInject = WeaponAbility:new()
 
 function NpcInject:init()
-  --if not storage then storage = {} end
-
-  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
-  util.setDebug(false)
-  --util.debugLog("Ininit")
-  --debugFunction(util.debugLog, sb.printJson(player.inventoryTags()))
+  
   self.weapon:setStance(self.stances.idle)
   self.cooldownTimer = 0
   self.tenants = nil
@@ -28,7 +23,7 @@ function NpcInject:init()
 
     storage.stagehandId = id
 
-    local dUuid = world.entityUniqueId(storage.spawner.deedId)
+    --local dUuid = world.entityUniqueId(storage.spawner.deedId)
     local pUuid = player.uniqueId()
 
     local deedpane = root.assetJson("/interface/scripted/deedmenu/deedpane.config")
@@ -79,21 +74,18 @@ function NpcInject:update(dt, fireMode, shiftHeld)
     elseif world.entityExists(storage.stagehandId or -1) then
       self:setState(self.absorb, storage.spawner.deedId, storage.stagehandId, storage.spawner)
     else
-      --animator.playSound("error")
-      --util.debugLog("inside firemode - else statement - storage.spawner cleared")
       self.cooldownTimer = 0
       storage.spawner = nil
       storage.stagehandId = nil
     end
   end
   if self.fireMode == "alt" then
-    --DEBUG:  DONT KEEP
-    --util.debugLog("inside firemode - alt - storage.spawner cleared")
-    --self.weapon:setStance(self.stances.idle)
-    self.cooldownTimer = 0
+    if world.entityExists(storage.stagehandId or -1) then
+      world.sendEntityMessage((storage.stagehandId), "colonyManager.die")
+      self.cooldownTimer = 0.5
+    end
     storage.spawner = nil
     storage.stagehandId = nil
-    
   end
 end
 
@@ -127,7 +119,7 @@ function NpcInject:scan()
     if #objects > 0 then
       local spawner = {}
       local deedId = objects[1]
-      local dUuid = world.entityUniqueId(deedId)
+      --local dUuid = world.entityUniqueId(deedId)
       local pUuid = player.uniqueId()
       local position = world.entityPosition(deedId)
       local returnValue = false

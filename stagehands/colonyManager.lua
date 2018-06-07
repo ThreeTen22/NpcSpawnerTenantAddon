@@ -6,7 +6,7 @@ function init()
     entityFunc =  world.callScriptedEntity
     self.debug = true
     self.deedId = configParam("deedId")
-    self.deedUuid = deedFunc("deedUniqueId")
+    --self.deedUuid = deedFunc("deedUniqueId")
     
     self.playerUuid = configParam("playerUuid")
     self.playerId = configParam("playerId")
@@ -80,26 +80,61 @@ end
 function initCoroutine()
     if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid then
 
-        deedFunc("object.say", "This deed does not belong to you.")
-        deedFunc("animator.setAnimationState", "deedState", "error")
+        sayError(table.unpack(configParam("errors.notOwner")))
         world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
         return stagehand.die()
     end
-    for i=1,5 do
-        if deedFunc("isVacant") then
+    local timer = 1
+    local primaryTenant, deedState, particleState
+    repeat 
+        primaryTenant = deedFunc("primaryTenant")
+        deedState = deedFunc("animator.animationState", "deedState")
+        particleState = deedFunc("animator.animationState", "particles")
+        if (not primaryTenant) and
+        (deedState == "scanning" or deedState == "beacon") 
+        then
+            timer = timer - script.updateDt()
+            coroutine.yield()
+        else
+            timer = -1
+        end 
+    until timer < 0
+
+    --primaryTenant = deedFunc("primaryTenant")
+    deedState = deedFunc("animator.animationState", "deedState")
+    particleState = deedFunc("animator.animationState", "particles")
+
+    if deedState == "error" then
+        return true
+    end
+    if particleState == "newArrival" then
+        timer = 0.5
+        while timer > 0 do
+            timer = timer - script.updateDt()
             coroutine.yield()
         end
     end
+
+    timer = 0.1
+    repeat 
+        primaryTenant = deedFunc("primaryTenant") or -1
+        if #(world.entityPortrait(primaryTenant, "full") or {}) > 0 then
+            timer = -1
+        else
+            timer = timer - script.updateDt()
+            coroutine.yield()
+        end
+    until timer < 0
+
+
     local entityUuIds = {}
-
-
     for i,v in ipairs(getTenants()) do
         entityUuIds[i] = v.uniqueId
     end
     local beamout = 0
     for i,v in ipairs(entityUuIds) do
-        local id = world.loadUniqueEntity(v)
-        if id > 0 then
+        local id = world.findUniqueEntity(v):result() and world.loadUniqueEntity(v)
+        if id and id > 0 then
             local list = entityFunc(id, "status.activeUniqueStatusEffectSummary")
             for li, lv in ipairs(list) do 
                 if lv[1]:find("beamout", 1, true) then
@@ -109,15 +144,17 @@ function initCoroutine()
             end
         end
     end
-    if beamout > 0 then
-        self.delayUpdate:start(beamout+0.2)
+    while beamout > 0 do
+        beamout = beamout - script.updateDt()
         coroutine.yield()
     end
     
+    --[[
     if deedFunc("isOccupied") and deedFunc("anyTenantsDead") == true then
         deedFunc("respawnTenants")
         coroutine.yield()
     end
+    ]]
 end
 
 function killStagehand()
@@ -131,7 +168,7 @@ function update(dt)
 
         if coroutine.status(self.init) ~= "dead" then
             local success, err = coroutine.resume(self.init)
-            if success or util.debugLog("coroutine failed:  \n%s", err) then
+            if success or assert(false, err) then
                 return
             end
         end
@@ -150,9 +187,6 @@ function update(dt)
                 tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
             end
             tenantPortraits[i].full = world.entityPortrait(entityId, "full")
-            
-            --tenantPortraits[i].head = world.entityPortrait(entityId, "head")
-            tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
             if v.spawn == "npc" then
                 if not typeConfig[v.type] then
                     typeConfig[v.type] = root.npcConfig(v.type)
@@ -224,6 +258,7 @@ function setDeedConfig(configItem)
         deedFunc("object.setConfigParameter", "deed", configItem)
         deedFunc("init")
     end
+    stagehand.die()
 end
 
 function setTenantInstanceValue(index, tenant, jsonPath, value)
@@ -234,7 +269,7 @@ function setTenantInstanceValue(index, tenant, jsonPath, value)
         value = jarray() 
     end
     jsonSetPathExplicit(tenants[index].overrides, jsonPath, value) 
-    local tenantId = tenants[index].uniqueId and world.loadUniqueEntity(tenants[index].uniqueId) or 0
+    local tenantId = (tenants[index].uniqueId and world.findUniqueEntity(tenants[index].uniqueId):result() and world.loadUniqueEntity(tenants[index].uniqueId)) or 0
     if tenantId ~= 0 then
         entityFunc(tenantId, "recruitable.beamOut")
         tenants[index].uniqueId = nil
@@ -327,13 +362,13 @@ function validateTenant(tenantJson)
 
     spawning, tenant = pcall(Tenant.new, copy(tenantJson))
     if not spawning then
-        return false, configParam("spawningErrors.type")
+        return false, configParam("errors.type")
     end
     spawning = true
     if tenant.spawn == "npc" then
         spawning, _ = createVariant(tenantJson)
         if not spawning then 
-            return false, configParam("spawningErrors.species")
+            return false, configParam("errors.species")
         end
         tenant:setInstanceValue("dropPools", jarray())
         tenant:setInstanceValue("damageTeam", nil)
@@ -352,8 +387,7 @@ function addTenant(tenantJson, shouldDie)
         if spawning then 
             deedFunc("addTenant", output:toJson())
         else
-            deedFunc("object.sayPortrait", output[1], output[2], {spawn=tenantJson.spawn,type=tenantJson.type, species=tenantJson.species})
-            deedFunc("animator.setAnimationState", "deedState", "error")
+            sayError(table.unpack(output))
         end
         --debugFunction(util.debugLog, "tenant to add: \n%s", sb.printJson(output, 1))
     end
@@ -362,7 +396,10 @@ function addTenant(tenantJson, shouldDie)
     end
 end
 
-
+function sayError(message, state)
+    deedFunc("object.say",message)
+    deedFunc("animator.setAnimationState", "deedState", state)
+end
 
 function debugFunction(func, ...)
     util.setDebug(true)

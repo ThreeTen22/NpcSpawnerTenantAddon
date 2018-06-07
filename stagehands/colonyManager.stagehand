@@ -11,18 +11,22 @@
     "playerId" : "",
     "deedId": "",
     "deedPosition": [],
-    "spawningErrors" : {
+    "errors" : {
         "type" : [
             "^red;Critical Failure:^white;\nThe <spawn> cannot be added.  The ^orange;<type> type^white; is unknown to this universe",
-            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"
+            "error"
         ],
         "species" : [
             "^red;Critical Failure:^white; The <spawn> cannot be added.  The ^orange;<species> species^white; is unknown to this universe",
-            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"           
+            "error"           
+        ],
+        "notOwner" : [
+            "This deed does not belong to you.",
+           "error"           
         ],
         "unknown" : [
             "^red;Critical Failure:^white; There was some unfathomable error..oh no!",
-            "/objects/spawner/colonydeed/colonydeed.png:error.1?scalenearest=2.0;2.0"           
+            "error"       
         ]
     },
     "defaultDialog" : {
@@ -57,7 +61,7 @@
             "name": "Tenant Baseline Behavior",
             "parameters": {}
             },
-            "converse" : {
+        "converse" : {
             "title": "converse",
             "type": "module",
             "name": "converse",

@@ -93,7 +93,7 @@ end
 function init()
     self.timers = TimerManager:new()
     self.swapSlotItem = nil
-    self.debug = true
+    self.debug = false
     self.configParam = config.getParameter
     self.selectedOption = widget.getSelectedOption
     self.tenantFromNpcCard = tenantFromNpcCard
