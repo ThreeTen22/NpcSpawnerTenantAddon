@@ -84,12 +84,12 @@ function initCoroutine()
         world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
         return stagehand.die()
     end
-    local timer = 1
+    local timer = 0.3
     local primaryTenant, deedState, particleState
     repeat 
         primaryTenant = deedFunc("primaryTenant")
         deedState = deedFunc("animator.animationState", "deedState")
-        particleState = deedFunc("animator.animationState", "particles")
+        --particleState = deedFunc("animator.animationState", "particles")
         if (not primaryTenant) and
         (deedState == "scanning" or deedState == "beacon") 
         then
@@ -100,22 +100,26 @@ function initCoroutine()
         end 
     until timer < 0
 
-    --primaryTenant = deedFunc("primaryTenant")
-    deedState = deedFunc("animator.animationState", "deedState")
-    particleState = deedFunc("animator.animationState", "particles")
-
-    if deedState == "error" then
-        return true
-    end
-    if particleState == "newArrival" then
-        timer = 0.5
-        while timer > 0 do
-            timer = timer - script.updateDt()
-            coroutine.yield()
+    primaryTenant = deedFunc("primaryTenant")
+    
+    --particleState = deedFunc("animator.animationState", "particles")
+    if (not primaryTenant) then
+        deedFunc("scan")
+        coroutine.yield()
+        deedState = deedFunc("animator.animationState", "deedState")
+        if deedState == "error" then
+            return true
+        end
+        if deedState == "occupied" then
+            timer = 0.1
+            while timer > 0 do
+                timer = timer - script.updateDt()
+                coroutine.yield()
+            end
         end
     end
 
-    timer = 0.1
+    timer = 0.2
     repeat 
         primaryTenant = deedFunc("primaryTenant") or -1
         if #(world.entityPortrait(primaryTenant, "full") or {}) > 0 then
@@ -125,7 +129,6 @@ function initCoroutine()
             coroutine.yield()
         end
     until timer < 0
-
 
     local entityUuIds = {}
     for i,v in ipairs(getTenants()) do
@@ -176,27 +179,31 @@ function update(dt)
         local entityId = nil
         local tenantPortraits = {}
         local typeConfig = {}
-        local tenants = getTenants()
+        local tenants = copy(getTenants())
         for i,v in ipairs(tenants) do
-            entityId = world.loadUniqueEntity(v.uniqueId)
-            
-            --sb.logInfo("entityID: %s",entityId)
-            tenantPortraits[i] = {}
-            
-            if v.spawn == "npc" then
-                tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
-            end
-            tenantPortraits[i].full = world.entityPortrait(entityId, "full")
-            if v.spawn == "npc" then
-                if not typeConfig[v.type] then
-                    typeConfig[v.type] = root.npcConfig(v.type)
+            if v.uniqueId and world.findUniqueEntity(v.uniqueId):result() then
+                entityId = world.loadUniqueEntity(v.uniqueId)
+                
+                tenantPortraits[i] = {}
+                
+                if v.spawn == "npc" then
+                    tenantPortraits[i].bust = world.entityPortrait(entityId, "bust")
                 end
-            else
-                if not typeConfig[v.type] then
-                    typeConfig[v.type] = root.monsterParameters(v.type)
+                tenantPortraits[i].full = world.entityPortrait(entityId, "full")
+                if v.spawn == "npc" then
+                    if not typeConfig[v.type] then
+                        typeConfig[v.type] = root.npcConfig(v.type)
+                    end
+                else
+                    if not typeConfig[v.type] then
+                        typeConfig[v.type] = root.monsterParameters(v.type)
+                    end
                 end
             end
-
+        end
+        if not(tenantPortraits[1] and tenantPortraits[1].full and tenantPortraits[1].full[1]) then
+            tenants = nil
+            tenantPortraits = nil
         end
         --sb.logInfo(sb.printJson(tenants, 1))
 

@@ -190,6 +190,11 @@ function NpcInject:absorb(deedId, stagehandId, spawner)
   --util.debugLog("ABSORB: BEFORE CHECKING storage.stagehandId")
   while not world.entityExists(storage.stagehandId or -1) and storage.spawner do
     --util.debugLog("ABSORB: WAIT FOR storage.stagehandId")
+    self.weapon.aimAngle, self.weapon.aimDirection = activeItem.aimAngleAndDirection(self.weapon.aimOffset, spawnerPos)
+    spawnerPos = vec2.add(world.entityPosition(deedId), spawner.attachPoint)
+    local offset = self:beamPosition(spawnerPos)
+    self:drawBeam(vec2.add(self:firePosition(), offset), false)
+    
     coroutine.yield()
   end
   --util.debugLog("ABSORB: storage.stagehandId FOUND")
