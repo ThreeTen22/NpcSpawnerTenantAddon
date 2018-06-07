@@ -19,8 +19,8 @@ comp.resolve = function(v)
     return v
 end
 
-comp.eq = function(v1, v2) return compare(comp.resolve(v1), comp.resolve(v2)) end
-comp.ne = function(v1, v2) return not compare(comp.resolve(v1, comp.resolve(v2))) end
+comp.eq = function(v1, v2) return comp.resolve(v1) == comp.resolve(v2) end
+comp.ne = function(v1, v2) return comp.resolve(v1) ~= comp.resolve(v2) end
 comp.gt = function(v1, v2) return comp.resolve(v1) >  comp.resolve(v2) end
 comp.ge = function(v1, v2) return comp.resolve(v1) >= comp.resolve(v2) end
 comp.lt = function(v1, v2) return comp.resolve(v1) <  comp.resolve(v2) end
@@ -49,10 +49,11 @@ comp.table = function(v1, v2, v3)
     return false
 end
 comp.set = function(v1, v2) 
-    v1, v2 = comp.resolve(v1), comp.resolve(v2)
+    v1 = comp.resolve(v1)
     if type(v1) ~= "nil" then
         return v1
     end
+    v2 = comp.resolve(v2)
     return v2
 end
 
@@ -274,6 +275,15 @@ function SetDeedConfig(id, data)
 
 end
 
+function onManageTenantButtonPressed(id, data)
+    id = config.getParameter(id..".fullPath")
+    if self.getState() == "manageTenant" then
+        return self.setState("selectTenant")
+    end
+
+    return self.setState("manageTenant")
+end
+
 function onModifyTenantButtomPressed(id, data)
     if self.getState() == "modifyTenant" then
         return self.setState("selectTenant")
@@ -339,7 +349,7 @@ end
 
 function ExportNpcCard(id, data)
     local item = config.getParameter("templateCard")
-    local tenant = self.selectedItem().tenant
+    local tenant = self.selectedValue("tenant")
     local args = tenant:toJson()
 
     args.level = args.level or (world.getProperty("ship.level") and 1) or world.threatLevel()
@@ -371,6 +381,9 @@ function ExportNpcCard(id, data)
         player.giveItem(player.swapSlotItem()) 
     end
     player.setSwapSlotItem(item)
+
+    --return RemoveTenant(id, data)
+
 end
 
 function SetTenantInstanceValue(id, data)
