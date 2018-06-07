@@ -37,11 +37,11 @@ function init()
 
 
     message.setHandler("colonyManager.die", simpleHandler(killStagehand))
-    message.setHandler("getTenants", simpleHandler(getTenants))
-    message.setHandler("addTenant", simpleHandler(addTenant))
-    message.setHandler("removeTenant", simpleHandler(removeTenant))
-    message.setHandler("setDeedConfig", simpleHandler(setDeedConfig))
-    message.setHandler("setTenantInstanceValue", simpleHandler(setTenantInstanceValue))
+    message.setHandler("colonyManager.getTenants", simpleHandler(getTenants))
+    message.setHandler("colonyManager.addTenant", simpleHandler(addTenant))
+    message.setHandler("colonyManager.removeTenant", simpleHandler(removeTenant))
+    message.setHandler("colonyManager.setDeedConfig", simpleHandler(setDeedConfig))
+    message.setHandler("colonyManager.setTenantInstanceValue", simpleHandler(setTenantInstanceValue))
     self.hasScanned = false
     self.die = false
 
@@ -335,18 +335,9 @@ function validateTenant(tenantJson)
         if not spawning then 
             return false, configParam("spawningErrors.species")
         end
-
-
-        --dialog = dialogInjection(tenant)
-
-        --util.debugLog("merged dialog: \n%s", sb.printJson(dialog))
         tenant:setInstanceValue("dropPools", jarray())
         tenant:setInstanceValue("damageTeam", nil)
         tenant:setInstanceValue("damageTeamType", nil)
-        --tenant:setInstanceValue("scriptConfig.behavior", "villageguard")
-        --tenant:setInstanceValue("scriptConfig.dialog", dialog)
-        
-        --now check to see if there is proper dialog, if not, add dialog.
     else
         tenant:setInstanceValue("wasRelocated", true)
     end

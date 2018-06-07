@@ -256,7 +256,7 @@ function SetDeedConfig(id, data)
 
     jsonSetPath(changes, data, checked)
     
-    world.sendEntityMessage(pane.sourceEntity(), "setDeedConfig", copy(changes[path[1]]))
+    world.sendEntityMessage(pane.sourceEntity(), "colonyManager.setDeedConfig", copy(changes[path[1]]))
 
 end
 
@@ -289,7 +289,7 @@ function onImportItemSlotInteraction(id, data)
         tenant = self[data.extractFunc](player.swapSlotItem())
         --util.debugLog("tenantInfo %s", sb.printJson(tenant, 1))
 
-        world.sendEntityMessage(stagehandId, "addTenant", tenant, true)
+        world.sendEntityMessage(stagehandId, "colonyManager.addTenant", tenant, true)
         --pane.dismiss()
         return
     end
@@ -376,7 +376,7 @@ function SetTenantInstanceValue(id, data)
         tenant:setInstanceValue(data.path, value)
     end
     widget.setButtonEnabled(id, false)
-    promises:add(world.sendEntityMessage(pane.sourceEntity(), "setTenantInstanceValue", tenant.jsonIndex+1, tenant.overrides, data.path, value),
+    promises:add(world.sendEntityMessage(pane.sourceEntity(), "colonyManager.setTenantInstanceValue", tenant.jsonIndex+1, tenant.overrides, data.path, value),
     function()
         widget.setButtonEnabled(id, true)
     end)
@@ -391,7 +391,7 @@ function RemoveTenant(id, data)
     local npcUuid = self.selectedValue("tenant.uniqueId")
     local spawn = self.selectedValue("tenant.spawn")
 
-    world.sendEntityMessage(pane.sourceEntity(), "removeTenant", npcUuid, spawn, true)
+    world.sendEntityMessage(pane.sourceEntity(), "colonyManager.removeTenant", npcUuid, spawn, true)
 end
 
 
