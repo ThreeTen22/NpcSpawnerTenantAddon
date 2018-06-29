@@ -37,6 +37,7 @@ function NpcInject:init()
     deedpane.tenantPortraits = tenantPortraits
     deedpane.configs = typeConfig
     deedpane.tenantCount = #tenants
+    deedpane.ownerUuid = world.getObjectParameter(storage.spawner.deedId, "owner")
     player.interact("ScriptPane", deedpane, id)
    
     return true
