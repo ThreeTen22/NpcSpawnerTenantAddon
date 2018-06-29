@@ -206,14 +206,16 @@ function init()
     widget.setChecked("detailArea.requireFilledBackgroundButton",
     world.getObjectParameter(
         config.getParameter("deedId"), 
-        widget.getData("detailArea.requireFilledBackgroundButton")
+        widget.getData("detailArea.requireFilledBackgroundButton"),
+        false
     ))
 
     
     widget.setChecked("detailArea.publicTenanatorModification",
     world.getObjectParameter(
         config.getParameter("deedId"), 
-        widget.getData("detailArea.publicTenanatorModification")
+        widget.getData("detailArea.publicTenanatorModification"),
+        false
     ))
 
     if config.getParameter("tenantCount") >= 5 then
@@ -272,6 +274,8 @@ function SetTenantatorConfig(id, data)
     id = config.getParameter(id..".fullPath")
     local checked = widget.getChecked(id)
     local path = util.split(data, ".")
+    --sb.setLogMap("pane", "Sending Message")
+    world.sendEntityMessage(pane.sourceEntity(), "colonyManager.setTenantatorConfig", data, checked)
 end
 
 function onManageTenantButtonPressed(id, data)

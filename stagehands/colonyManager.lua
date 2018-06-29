@@ -41,7 +41,7 @@ function init()
     message.setHandler("colonyManager.addTenant", simpleHandler(addTenant))
     message.setHandler("colonyManager.removeTenant", simpleHandler(removeTenant))
     message.setHandler("colonyManager.setDeedConfig", simpleHandler(setDeedConfig))
-    ("colonyManager.setTenantatorConfig", simpleHandler(setTenantatorConfig))
+    message.setHandler("colonyManager.setTenantatorConfig", simpleHandler(setTenantatorConfig))
     message.setHandler("colonyManager.setTenantInstanceValue", simpleHandler(setTenantInstanceValue))
     self.hasScanned = false
     self.die = false
@@ -271,10 +271,10 @@ end
 
 --Used to change single values on the deed, meant for setting Tenantator config information.  Currently used to allow other players to modify deeds.
 function setTenantatorConfig(key, value)
+    
     if world.entityExists(self.deedId or -1) then
         deedFunc("object.setConfigParameter", key, value)
     end
-    stagehand.die()
 end
 
 function setTenantInstanceValue(index, tenant, jsonPath, value)
