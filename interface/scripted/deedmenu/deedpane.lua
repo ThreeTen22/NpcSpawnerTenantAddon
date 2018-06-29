@@ -208,6 +208,14 @@ function init()
         config.getParameter("deedId"), 
         widget.getData("detailArea.requireFilledBackgroundButton")
     ))
+
+    
+    widget.setChecked("detailArea.publicTenanatorModification",
+    world.getObjectParameter(
+        config.getParameter("deedId"), 
+        widget.getData("detailArea.publicTenanatorModification")
+    ))
+
     if config.getParameter("tenantCount") >= 5 then
         checkPlayerInteraction = function() end
     end
@@ -258,6 +266,12 @@ function SetDeedConfig(id, data)
     
     world.sendEntityMessage(pane.sourceEntity(), "colonyManager.setDeedConfig", copy(changes[path[1]]))
 
+end
+
+function SetTenantatorConfig(id, data)
+    id = config.getParameter(id..".fullPath")
+    local checked = widget.getChecked(id)
+    local path = util.split(data, ".")
 end
 
 function onManageTenantButtonPressed(id, data)

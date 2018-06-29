@@ -41,6 +41,7 @@ function init()
     message.setHandler("colonyManager.addTenant", simpleHandler(addTenant))
     message.setHandler("colonyManager.removeTenant", simpleHandler(removeTenant))
     message.setHandler("colonyManager.setDeedConfig", simpleHandler(setDeedConfig))
+    ("colonyManager.setTenantatorConfig", simpleHandler(setTenantatorConfig))
     message.setHandler("colonyManager.setTenantInstanceValue", simpleHandler(setTenantInstanceValue))
     self.hasScanned = false
     self.die = false
@@ -78,7 +79,7 @@ function maxBeamoutTime(entityUuIds)
     return beamout
 end
 function initCoroutine()
-    if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid then
+    if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid and not world.getObjectParameter(self.deedId, "publicTenanatorModification", false) then
 
         sayError(table.unpack(configParam("errors.notOwner")))
         world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
@@ -264,6 +265,14 @@ function setDeedConfig(configItem)
     if world.entityExists(self.deedId or -1) then
         deedFunc("object.setConfigParameter", "deed", configItem)
         deedFunc("init")
+    end
+    stagehand.die()
+end
+
+--Used to change single values on the deed, meant for setting Tenantator config information.  Currently used to allow other players to modify deeds.
+function setTenantatorConfig(key, value)
+    if world.entityExists(self.deedId or -1) then
+        deedFunc("object.setConfigParameter", key, value)
     end
     stagehand.die()
 end
