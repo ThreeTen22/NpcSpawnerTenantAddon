@@ -79,7 +79,7 @@ function maxBeamoutTime(entityUuIds)
     return beamout
 end
 function initCoroutine()
-    if world.getObjectParameter(self.deedId, "owner") == self.playerUuid and not world.getObjectParameter(self.deedId, "publicTenanatorModification", false) then
+    if world.getObjectParameter(self.deedId, "owner") ~= self.playerUuid and not world.getObjectParameter(self.deedId, "publicTenanatorModification", false) then
 
         sayError(table.unpack(configParam("errors.notOwner")))
         world.sendEntityMessage(self.playerUuid, "npcinjector.onStagehandFailed", {reason="notOwner"})
